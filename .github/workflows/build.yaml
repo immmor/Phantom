@@ -49,6 +49,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup Java
+        if: startsWith(matrix.platform,'android')
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Setup Android Signing
         if: startsWith(matrix.platform,'android')
         run: |
