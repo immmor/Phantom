@@ -97,7 +97,7 @@ class Build {
     BuildItem(target: Target.ios, arch: Arch.arm64),
   ];
 
-  static String get appName => 'FlClash';
+  static String get appName => 'Phantom';
 
   static String get coreName => 'FlClashCore';
 
