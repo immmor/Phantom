@@ -62,6 +62,7 @@ extension InitControllerExt on AppController {
     await _initCore();
     await _initStatus();
     _ref.read(initProvider.notifier).value = true;
+    toPage(PageLabel.home);
   }
 
   Future<void> _handleFailedPreference() async {
@@ -855,9 +856,6 @@ extension SystemControllerExt on AppController {
   }
 
   Future<void> handleExit([bool needSave = false]) async {
-    Future.delayed(Duration(seconds: 3), () {
-      system.exit();
-    });
     try {
       await Future.wait([
         if (needSave) preferences.saveConfig(config),
@@ -876,14 +874,7 @@ extension SystemControllerExt on AppController {
     if (_ref.read(backBlockProvider)) {
       return;
     }
-    if (_ref.read(appSettingProvider).minimizeOnExit) {
-      if (system.isDesktop) {
-        await preferences.saveConfig(config);
-      }
-      await system.back();
-    } else {
-      await handleExit();
-    }
+    await handleExit();
   }
 
   Future<void> updateVisible() async {

@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constant.dart';
 
+final _usernameKey = 'username';
+
 class Preferences {
   static Preferences? _instance;
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
@@ -83,6 +85,101 @@ class Preferences {
   Future<bool> saveConfig(Config config) async {
     final preferences = await sharedPreferencesCompleter.future;
     return preferences?.setString(configKey, json.encode(config)) ?? false;
+  }
+
+  Future<DateTime?> getLastLoginTime() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    final timestamp = preferences?.getInt('lastLoginTime');
+    return timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : null;
+  }
+
+  Future<void> setLastLoginTime(DateTime time) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setInt('lastLoginTime', time.millisecondsSinceEpoch);
+  }
+
+  Future<String?> getVToken() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getString('vToken');
+  }
+
+  Future<void> setVToken(String? token) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (token != null) {
+      await preferences?.setString('vToken', token);
+    } else {
+      await preferences?.remove('vToken');
+    }
+  }
+
+  Future<String?> getVExpireDate() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getString('vExpireDate');
+  }
+
+  Future<String?> getUsername() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getString(_usernameKey);
+  }
+
+  Future<void> setUsername(String? username) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (username != null) {
+      await preferences?.setString(_usernameKey, username);
+    } else {
+      await preferences?.remove(_usernameKey);
+    }
+  }
+
+  Future<void> setVExpireDate(String? date) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (date != null) {
+      await preferences?.setString('vExpireDate', date);
+    } else {
+      await preferences?.remove('vExpireDate');
+    }
+  }
+
+  Future<double?> getBalance() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getDouble('balance');
+  }
+
+  Future<void> setBalance(double? balance) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (balance != null) {
+      await preferences?.setDouble('balance', balance);
+    } else {
+      await preferences?.remove('balance');
+    }
+  }
+
+  Future<double?> getCachedTotalUpTraffic() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getDouble('cachedTotalUpTraffic');
+  }
+
+  Future<void> setCachedTotalUpTraffic(double? value) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (value != null) {
+      await preferences?.setDouble('cachedTotalUpTraffic', value);
+    } else {
+      await preferences?.remove('cachedTotalUpTraffic');
+    }
+  }
+
+  Future<double?> getCachedTotalDownTraffic() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getDouble('cachedTotalDownTraffic');
+  }
+
+  Future<void> setCachedTotalDownTraffic(double? value) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (value != null) {
+      await preferences?.setDouble('cachedTotalDownTraffic', value);
+    } else {
+      await preferences?.remove('cachedTotalDownTraffic');
+    }
   }
 
   Future<void> clearPreferences() async {

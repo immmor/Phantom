@@ -15,7 +15,7 @@ class CoreController {
   late CoreHandlerInterface _interface;
 
   CoreController._internal() {
-    if (system.isAndroid) {
+    if (system.isAndroid || system.isIOS) {
       _interface = coreLib!;
     } else {
       _interface = coreService!;
@@ -107,16 +107,21 @@ class CoreController {
     required Map<String, String> selectedMap,
     required String defaultTestUrl,
   }) async {
-    final proxiesData = await _interface.getProxies();
-    return toGroupsTask(
-      ComputeGroupsState(
-        proxiesData: proxiesData,
-        sortType: sortType,
-        delayMap: delayMap,
-        selectedMap: selectedMap,
-        defaultTestUrl: defaultTestUrl,
-      ),
-    );
+    try {
+      final proxiesData = await _interface.getProxies();
+      return toGroupsTask(
+        ComputeGroupsState(
+          proxiesData: proxiesData,
+          sortType: sortType,
+          delayMap: delayMap,
+          selectedMap: selectedMap,
+          defaultTestUrl: defaultTestUrl,
+        ),
+      );
+    } catch (e) {
+      commonPrint.log('getProxiesGroups error: $e');
+      return [];
+    }
   }
 
   FutureOr<String> changeProxy(ChangeProxyParams changeProxyParams) async {

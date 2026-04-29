@@ -26,7 +26,7 @@ final class ProfilesStreamProvider
         argument: null,
         retry: null,
         name: r'profilesStreamProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -46,7 +46,7 @@ final class ProfilesStreamProvider
   }
 }
 
-String _$profilesStreamHash() => r'483907aa6c324209b5202369300a4a53230f83db';
+String _$profilesStreamHash() => r'816991dc26a4f51cdde6c769bb095df15fbd29a2';
 
 @ProviderFor(addedRuleStream)
 const addedRuleStreamProvider = AddedRuleStreamFamily._();
@@ -154,7 +154,7 @@ final class ProfilesProvider
   }
 }
 
-String _$profilesHash() => r'9ba0fedd671eab4aa809eb2ce7962f8a7a71665d';
+String _$profilesHash() => r'6f28a8888d2b75fe1efa800235d506e34284546c';
 
 abstract class _$Profiles extends $Notifier<List<Profile>> {
   List<Profile> build();

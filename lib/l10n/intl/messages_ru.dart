@@ -277,12 +277,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "defaultText": MessageLookupByLibrary.simpleMessage("По умолчанию"),
     "delay": MessageLookupByLibrary.simpleMessage("Задержка"),
     "delaySort": MessageLookupByLibrary.simpleMessage("Сортировка по задержке"),
-    "delayTest": MessageLookupByLibrary.simpleMessage("Тест задержки"),
+    "delayTest": MessageLookupByLibrary.simpleMessage("Тест скорости"),
     "delete": MessageLookupByLibrary.simpleMessage("Удалить"),
     "deleteMultipTip": m1,
     "deleteTip": m2,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "Многоплатформенный прокси-клиент на основе ClashMeta, простой и удобный в использовании, с открытым исходным кодом и без рекламы.",
+      "Зарубежная команда, десятилетний бренд, которому можно доверять. Высокоскоростные узлы в нескольких странах - вы это заслуживаете.",
     ),
     "destination": MessageLookupByLibrary.simpleMessage("Назначение"),
     "destinationGeoIP": MessageLookupByLibrary.simpleMessage(

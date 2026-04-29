@@ -13,25 +13,31 @@ class Navigation {
     return [
       NavigationItem(
         keep: false,
-        icon: Icon(Icons.space_dashboard),
-        label: PageLabel.dashboard,
+        icon: Icon(Icons.home),
+        label: PageLabel.home,
         builder: (_) =>
-            const DashboardView(key: GlobalObjectKey(PageLabel.dashboard)),
+            const PhantomHomeView(key: GlobalObjectKey(PageLabel.home)),
       ),
+      // NavigationItem(
+      //   keep: false,
+      //   icon: Icon(Icons.space_dashboard),
+      //   label: PageLabel.dashboard,
+      //   builder: (_) =>
+      //       const DashboardView(key: GlobalObjectKey(PageLabel.dashboard)),
+      // ),
       NavigationItem(
         icon: const Icon(Icons.article),
         label: PageLabel.proxies,
         builder: (_) =>
             const ProxiesView(key: GlobalObjectKey(PageLabel.proxies)),
-        modes: hasProxies
-            ? [NavigationItemMode.mobile, NavigationItemMode.desktop]
-            : [],
+        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
       ),
       NavigationItem(
         icon: Icon(Icons.folder),
         label: PageLabel.profiles,
         builder: (_) =>
             const ProfilesView(key: GlobalObjectKey(PageLabel.profiles)),
+        modes: [],
       ),
       NavigationItem(
         icon: Icon(Icons.view_timeline),
@@ -70,6 +76,12 @@ class Navigation {
         icon: Icon(Icons.construction),
         label: PageLabel.tools,
         builder: (_) => const ToolsView(key: GlobalObjectKey(PageLabel.tools)),
+        modes: [],
+      ),
+      NavigationItem(
+        icon: Icon(Icons.settings),
+        label: PageLabel.settings,
+        builder: (_) => const SettingsView(key: GlobalObjectKey(PageLabel.settings)),
         modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
       ),
     ];

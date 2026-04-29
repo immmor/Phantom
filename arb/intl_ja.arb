@@ -121,7 +121,7 @@
   "project": "プロジェクト",
   "core": "コア",
   "tabAnimation": "タブアニメーション",
-  "desc": "ClashMetaベースのマルチプラットフォームプロキシクライアント。シンプルで使いやすく、オープンソースで広告なし。",
+  "desc": "海外チーム、十年的ブランド的高速なノードを複数の国に展開しており、あなたの信頼に値します。",
   "startVpn": "VPNを開始中...",
   "stopVpn": "VPNを停止中...",
   "discovery": "新しいバージョンを発見",
@@ -477,5 +477,5 @@
   "restoreOnlyConfig": "設定ファイルのみを復元する",
   "restoreAllData": "すべてのデータを復元する",
   "addProfile": "プロファイルを追加",
-  "delayTest": "遅延テスト"
+  "delayTest": "速度テスト"
 }

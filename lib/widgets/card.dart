@@ -141,7 +141,7 @@ class CommonCard extends StatelessWidget {
     if (isSelected) {
       return colorScheme.secondaryContainer;
     }
-    return colorScheme.surfaceContainerLow;
+    return colorScheme.surface;
   }
 
   Color? getForegroundColor(BuildContext context, Set<WidgetState> states) {

@@ -1,4 +1,5 @@
 {
+  "home": "Home",
   "rule": "Rule",
   "global": "Global",
   "direct": "Direct",
@@ -121,7 +122,7 @@
   "project": "Project",
   "core": "Core",
   "tabAnimation": "Tab animation",
-  "desc": "A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.",
+  "desc": "Overseas team, ten years of reliable service. High-speed nodes across multiple countries - you deserve it.",
   "startVpn": "Starting VPN...",
   "stopVpn": "Stopping VPN...",
   "discovery": "Discovery a new version",
@@ -476,5 +477,5 @@
   "restoreOnlyConfig": "Restore configuration files only",
   "restoreAllData": "Restore all data",
   "addProfile": "Add Profile",
-  "delayTest": "Delay Test"
+  "delayTest": "Speed Test"
 }

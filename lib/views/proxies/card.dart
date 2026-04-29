@@ -130,24 +130,25 @@ class ProxyCard extends StatelessWidget {
                 _changeProxy(ref);
               },
               isSelected: selectedProxyName == proxy.name,
+              radius: 12,
               child: child!,
             );
           },
           child: Container(
             alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 proxyNameText,
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 if (type == ProxyCardType.expand) ...[
                   SizedBox(
                     height: measure.bodySmallHeight,
                     child: _ProxyDesc(proxy: proxy),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   delayText,
                 ] else
                   SizedBox(

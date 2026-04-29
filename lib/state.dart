@@ -30,8 +30,9 @@ typedef UpdateTasks = List<FutureOr Function()>;
 class GlobalState {
   static GlobalState? _instance;
   final navigatorKey = GlobalKey<NavigatorState>();
+  ProviderContainer? container;
   Timer? timer;
-  bool isPre = true;
+  bool isPre = false;
   late final String coreSHA256;
   late final PackageInfo packageInfo;
   Function? updateCurrentDelayDebounce;
@@ -56,7 +57,8 @@ class GlobalState {
 
   Future<ProviderContainer> init(int version) async {
     coreSHA256 = const String.fromEnvironment('CORE_SHA256');
-    isPre = const String.fromEnvironment('APP_ENV') != 'stable';
+    // PRE 标识已禁用
+    isPre = false;
     await _initDynamicColor();
     return await _initData(version);
   }
@@ -100,6 +102,7 @@ class GlobalState {
     final container = ProviderContainer(
       overrides: [...appStateOverrides, ...configOverrides],
     );
+    this.container = container;
     final profiles = await database.profilesDao.all().get();
     container.read(profilesProvider.notifier).setAndReorder(profiles);
     await AppLocalizations.load(

@@ -1,4 +1,5 @@
 {
+  "home": "首页",
   "rule": "规则",
   "global": "全局",
   "direct": "直连",
@@ -121,7 +122,7 @@
   "project": "项目",
   "core": "内核",
   "tabAnimation": "选项卡动画",
-  "desc": "基于ClashMeta的多平台代理客户端，简单易用，开源无广告。",
+  "desc": "海外团队，十年老品牌，绝对值得信赖。拥有多个国家的高速节点，你绝对值得拥有。",
   "startVpn": "正在启动VPN...",
   "stopVpn": "正在停止VPN...",
   "discovery": "发现新版本",
@@ -477,5 +478,5 @@
   "restoreOnlyConfig": "仅恢复配置文件",
   "restoreAllData": "恢复所有数据",
   "addProfile": "添加配置",
-  "delayTest": "延迟测试"
+  "delayTest": "测速"
 }

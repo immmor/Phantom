@@ -188,35 +188,43 @@ class LogItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      onTap: () {},
-      title: SelectableText(
-        log.payload,
-        style: context.textTheme.bodyLarge?.copyWith(color: log.logLevel.color),
-      ),
-      subtitle: Column(
-        children: [
-          SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: CommonCard(
+        type: CommonCardType.filled,
+        onPressed: () {},
+        radius: 8,
+        child: ListItem(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          onTap: () {},
+          title: SelectableText(
+            log.payload,
+            style: context.textTheme.bodyLarge?.copyWith(color: log.logLevel.color),
+          ),
+          subtitle: Column(
             children: [
-              CommonChip(
-                onPressed: () {
-                  if (onClick == null) return;
-                  onClick!(log.logLevel.name);
-                },
-                label: log.logLevel.name,
-              ),
-              Text(
-                log.dateTime,
-                style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurface.opacity80,
-                ),
+              SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CommonChip(
+                    onPressed: () {
+                      if (onClick == null) return;
+                      onClick!(log.logLevel.name);
+                    },
+                    label: log.logLevel.name,
+                  ),
+                  Text(
+                    log.dateTime,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: context.colorScheme.onSurface.opacity80,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

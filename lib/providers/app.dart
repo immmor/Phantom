@@ -164,7 +164,7 @@ class CurrentPageLabel extends _$CurrentPageLabel
     with AutoDisposeNotifierMixin {
   @override
   PageLabel build() {
-    return PageLabel.dashboard;
+    return PageLabel.home;
   }
 }
 

@@ -322,6 +322,7 @@ enum DashboardWidget {
 enum GeodataLoader { standard, memconservative }
 
 enum PageLabel {
+  home,
   dashboard,
   proxies,
   profiles,
@@ -330,6 +331,7 @@ enum PageLabel {
   requests,
   resources,
   connections,
+  settings,
 }
 
 enum RuleAction {

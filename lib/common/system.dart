@@ -29,6 +29,8 @@ class System {
 
   bool get isAndroid => Platform.isAndroid;
 
+  bool get isIOS => Platform.isIOS;
+
   bool get isLinux => Platform.isLinux;
 
   Future<int> get version async {

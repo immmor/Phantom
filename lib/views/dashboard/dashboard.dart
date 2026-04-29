@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:defer_pointer/defer_pointer.dart';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -11,6 +14,81 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'widgets/start_button.dart';
+
+final _userInfoProvider = FutureProvider<(String?, double?)>((ref) async {
+  final expireDate = await preferences.getVExpireDate();
+  final balance = await preferences.getBalance();
+  return (expireDate, balance);
+});
+
+Future<String?> _renewVip(int duration) async {
+  final username = await preferences.getUsername();
+  if (username == null) return '用户未登录';
+  try {
+    final dio = Dio()
+      ..httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.findProxy = (uri) => 'DIRECT';
+          client.badCertificateCallback = (_, host, cert) => true;
+          return client;
+        },
+      );
+    final price = duration == 365 ? 450.0 : 40.0;
+    final res = await dio.post(
+      'https://api.immmor.com/api/open-vip',
+      data: {'username': username, 'duration': duration, 'price': price},
+    );
+    if (res.data['code'] == 200) {
+      final data = res.data['data'];
+      await preferences.setBalance(data['balance']);
+      await preferences.setVExpireDate(data['v_expire_date']);
+      await preferences.setVToken(data['v_token']);
+      return null;
+    }
+    return res.data['msg'] ?? '续费失败';
+  } catch (e) {
+    return '网络错误';
+  }
+}
+
+class _RenewButton extends ConsumerWidget {
+  final int duration;
+  final double price;
+  final bool isVip;
+
+  const _RenewButton({required this.duration, required this.price, required this.isVip});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ElevatedButton(
+      onPressed: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('确认续费'),
+            content: Text('确定要${isVip ? '续费' : '开通'} VIP 吗？\n${duration == 365 ? '年付' : '月付'}：¥$price'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('确定')),
+            ],
+          ),
+        );
+        if (confirm == true && context.mounted) {
+          final msg = await _renewVip(duration);
+          if (msg == null && context.mounted) {
+            ref.invalidate(_userInfoProvider);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isVip ? '续费成功' : '开通成功')));
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? '续费失败')));
+          }
+        }
+      },
+      style: ElevatedButton.styleFrom(backgroundColor: isVip ? Colors.green : Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), minimumSize: Size.zero),
+      child: Text('${duration == 365 ? '年付' : '月付'} ¥$price', style: const TextStyle(fontSize: 12)),
+    );
+  }
+}
 
 typedef _IsEditWidgetBuilder = Widget Function(bool isEdit);
 
@@ -254,40 +332,95 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         body: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16).copyWith(bottom: 88),
-            child: isEdit
-                ? SystemBackBlock(
-                    child: CommonPopScope(
-                      child: SuperGrid(
-                        key: key,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16).copyWith(bottom: 88),
+            child: Column(
+              children: [
+                // 会员状态和余额显示
+                Consumer(
+                  builder: (_, ref, __) {
+                    final userInfoAsync = ref.watch(_userInfoProvider);
+                    return userInfoAsync.when(
+                      data: (userInfo) {
+                        if (isEdit) return const SizedBox.shrink();
+                        final (expireDate, balance) = userInfo;
+                        final isVip = expireDate != null &&
+                            DateTime.tryParse(expireDate)?.isAfter(DateTime.now()) == true;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isVip ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(isVip ? Icons.diamond : Icons.diamond_outlined, size: 16, color: isVip ? Colors.green : Colors.grey),
+                                  const SizedBox(width: 8),
+                                  Text(isVip ? 'VIP 到期: $expireDate' : '普通用户', style: TextStyle(fontSize: 12, color: isVip ? Colors.green : Colors.grey)),
+                                ],
+                              ),
+                              if (balance != null) ...[
+                                const SizedBox(height: 4),
+                                Text('余额: ${balance.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, color: isVip ? Colors.green.shade700 : Colors.grey.shade700)),
+                              ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _RenewButton(duration: 30, price: 40, isVip: isVip),
+                                  const SizedBox(width: 8),
+                                  _RenewButton(duration: 365, price: 450, isVip: isVip),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
+                isEdit
+                    ? SystemBackBlock(
+                        child: CommonPopScope(
+                          child: SuperGrid(
+                            key: key,
+                            crossAxisCount: columns,
+                            crossAxisSpacing: spacing,
+                            mainAxisSpacing: spacing,
+                            children: [
+                              ...dashboardState.dashboardWidgets
+                                  .where(
+                                    (item) => item.platforms.contains(
+                                      SupportPlatform.currentPlatform,
+                                    ),
+                                  )
+                                  .map((item) => item.widget),
+                            ],
+                            onUpdate: () {
+                              _handleSave();
+                            },
+                          ),
+                          onPop: (context) {
+                            _handleUpdateIsEdit();
+                            return false;
+                          },
+                        ),
+                      )
+                    : Grid(
                         crossAxisCount: columns,
                         crossAxisSpacing: spacing,
                         mainAxisSpacing: spacing,
-                        children: [
-                          ...dashboardState.dashboardWidgets
-                              .where(
-                                (item) => item.platforms.contains(
-                                  SupportPlatform.currentPlatform,
-                                ),
-                              )
-                              .map((item) => item.widget),
-                        ],
-                        onUpdate: () {
-                          _handleSave();
-                        },
+                        children: children,
                       ),
-                      onPop: (context) {
-                        _handleUpdateIsEdit();
-                        return false;
-                      },
-                    ),
-                  )
-                : Grid(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    children: children,
-                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -7,11 +7,11 @@ import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 
-enum Target { windows, linux, android, macos }
+enum Target { windows, linux, android, macos, ios }
 
 extension TargetExt on Target {
   String get os {
-    if (this == Target.macos) {
+    if (this == Target.macos || this == Target.ios) {
       return 'darwin';
     }
     return name;
@@ -27,7 +27,7 @@ extension TargetExt on Target {
     if (Platform.isLinux && this == Target.linux) {
       return true;
     }
-    if (Platform.isMacOS && this == Target.macos) {
+    if (Platform.isMacOS && (this == Target.macos || this == Target.ios)) {
       return true;
     }
     return false;
@@ -42,7 +42,7 @@ extension TargetExt on Target {
       case Target.windows:
         extensionName = '.dll';
         break;
-      case Target.macos:
+      case Target.macos || Target.ios:
         extensionName = '.dylib';
         break;
     }
@@ -54,6 +54,9 @@ extension TargetExt on Target {
     switch (this) {
       case Target.windows:
         extensionName = '.exe';
+        break;
+      case Target.ios:
+        extensionName = '';
         break;
       default:
         extensionName = '';
@@ -91,6 +94,7 @@ class Build {
     BuildItem(target: Target.android, arch: Arch.arm, archName: 'armeabi-v7a'),
     BuildItem(target: Target.android, arch: Arch.arm64, archName: 'arm64-v8a'),
     BuildItem(target: Target.android, arch: Arch.amd64, archName: 'x86_64'),
+    BuildItem(target: Target.ios, arch: Arch.arm64),
   ];
 
   static String get appName => 'FlClash';
@@ -126,6 +130,9 @@ class Build {
         'x86_64': 'x86_64-linux-android21-clang',
       };
       return join(prebuiltDirList.first.path, 'bin', map[buildItem.archName]);
+    }
+    if (buildItem.target == Target.ios) {
+      return 'clang';
     }
     return 'gcc';
   }
@@ -522,6 +529,14 @@ class BuildCommand extends Command {
           env: env,
         );
         return;
+      case Target.ios:
+        _buildDistributor(
+          target: target,
+          targets: 'ipa',
+          args: ' --description $archName',
+          env: env,
+        );
+        return;
     }
   }
 }
@@ -532,5 +547,6 @@ Future<void> main(Iterable<String> args) async {
   runner.addCommand(BuildCommand(target: Target.linux));
   runner.addCommand(BuildCommand(target: Target.windows));
   runner.addCommand(BuildCommand(target: Target.macos));
+  runner.addCommand(BuildCommand(target: Target.ios));
   runner.run(args);
 }

@@ -270,12 +270,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "defaultText": MessageLookupByLibrary.simpleMessage("Default"),
     "delay": MessageLookupByLibrary.simpleMessage("Delay"),
     "delaySort": MessageLookupByLibrary.simpleMessage("Sort by delay"),
-    "delayTest": MessageLookupByLibrary.simpleMessage("Delay Test"),
+    "delayTest": MessageLookupByLibrary.simpleMessage("Speed Test"),
     "delete": MessageLookupByLibrary.simpleMessage("Delete"),
     "deleteMultipTip": m1,
     "deleteTip": m2,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.",
+      "Overseas team, ten years of reliable service. High-speed nodes across multiple countries - you deserve it.",
     ),
     "destination": MessageLookupByLibrary.simpleMessage("Destination"),
     "destinationGeoIP": MessageLookupByLibrary.simpleMessage(
@@ -388,6 +388,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Get original rules",
     ),
     "global": MessageLookupByLibrary.simpleMessage("Global"),
+    "home": MessageLookupByLibrary.simpleMessage("Home"),
     "go": MessageLookupByLibrary.simpleMessage("Go"),
     "goDownload": MessageLookupByLibrary.simpleMessage("Go to download"),
     "goToConfigureScript": MessageLookupByLibrary.simpleMessage(

@@ -32,6 +32,10 @@ class MainFlutterWindow: NSWindow {
     }
     override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
         super.order(place, relativeTo: otherWin)
-        hiddenWindowAtLaunch()
+        // 确保应用启动时窗口直接显示
+        if !self.isVisible {
+            self.setIsVisible(true)
+            self.makeKeyAndOrderFront(self)
+        }
     }
 }

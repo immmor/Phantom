@@ -112,34 +112,44 @@ class Request {
         }
       }
 
-      final future = dio
-          .get<Map<String, dynamic>>(
-            source.key,
-            cancelToken: token,
-            options: Options(responseType: ResponseType.json),
-          )
-          .timeout(const Duration(seconds: 10));
-      future
-          .then((res) {
-            if (res.statusCode == HttpStatus.ok && res.data != null) {
-              completer.complete(Result.success(source.value(res.data!)));
-              return;
-            }
-            failureCount++;
-            handleFailRes();
-          })
-          .catchError((e) {
-            failureCount++;
-            if (e is DioException && e.type == DioExceptionType.cancel) {
-              completer.complete(Result.error('cancelled'));
-            }
-            handleFailRes();
-          });
+      try {
+        final future = dio
+            .get<Map<String, dynamic>>(
+              source.key,
+              cancelToken: token,
+              options: Options(responseType: ResponseType.json),
+            )
+            .timeout(const Duration(seconds: 10));
+        future
+            .then((res) {
+              if (res.statusCode == HttpStatus.ok && res.data != null) {
+                completer.complete(Result.success(source.value(res.data!)));
+                return;
+              }
+              failureCount++;
+              handleFailRes();
+            })
+            .catchError((e) {
+              failureCount++;
+              if (e is DioException && e.type == DioExceptionType.cancel) {
+                completer.complete(Result.error('cancelled'));
+              }
+              handleFailRes();
+            });
+      } catch (e) {
+        failureCount++;
+        handleFailRes();
+      }
       return completer.future;
     });
-    final res = await Future.any(futures);
-    token.cancel();
-    return res;
+    try {
+      final res = await Future.any(futures);
+      token.cancel();
+      return res;
+    } catch (e) {
+      token.cancel();
+      return Result.success(null);
+    }
   }
 
   Future<bool> pingHelper() async {

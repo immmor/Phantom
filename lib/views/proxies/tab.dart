@@ -205,6 +205,14 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                     overlayColor: const WidgetStatePropertyAll(
                       Colors.transparent,
                     ),
+                    labelColor: context.colorScheme.primary,
+                    unselectedLabelColor: context.colorScheme.onSurfaceVariant.opacity60,
+                    labelStyle: context.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: context.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w400,
+                    ),
                     tabs: [
                       for (final group in groups)
                         Tab(
@@ -229,8 +237,8 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    context.colorScheme.surface.opacity10,
-                    context.colorScheme.surface,
+                    context.colorScheme.surfaceContainerHighest.opacity80,
+                    context.colorScheme.surfaceContainerHighest,
                   ],
                   stops: const [0.0, 0.1],
                 ),

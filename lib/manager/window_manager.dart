@@ -6,6 +6,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:window_ext/window_ext.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -278,7 +279,7 @@ class AppIcon extends StatelessWidget {
       padding: EdgeInsets.all(8),
       child: Transform.translate(
         offset: Offset(0, -1),
-        child: Image.asset('assets/images/icon.png', width: 34, height: 34),
+        child: SvgPicture.asset('assets/images/phantom.svg', width: 34, height: 34),
       ),
     );
   }
