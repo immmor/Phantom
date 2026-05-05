@@ -1,4 +1,5 @@
 {
+  "home": "ホーム",
   "rule": "ルール",
   "global": "グローバル",
   "direct": "ダイレクト",
@@ -22,6 +23,7 @@
   "noProxyDesc": "プロファイルを作成するか、有効なプロファイルを追加してください",
   "nullProfileDesc": "プロファイルがありません。追加してください",
   "settings": "設定",
+  "mine": "マイ",
   "language": "言語",
   "defaultText": "デフォルト",
   "more": "詳細",

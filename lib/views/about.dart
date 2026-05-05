@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
-import 'package:fl_clash/pages/login.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -90,14 +89,6 @@ class AboutView extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 24),
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: FilledButton.tonal(
-          onPressed: () => _logout(context),
-          child: const Text('退出登录'),
-        ),
-      ),
     ];
     return BaseScaffold(
       title: appLocalizations.about,
@@ -106,28 +97,6 @@ class AboutView extends StatelessWidget {
         child: generateListView(items),
       ),
     );
-  }
-
-  Future<void> _logout(BuildContext context) async {
-    final confirm = await globalState.showMessage(
-      title: '确认退出',
-      message: const TextSpan(text: '确定要退出登录吗？'),
-      confirmText: '退出',
-      cancelText: '取消',
-    );
-    if (confirm == true) {
-      await preferences.setLastLoginTime(DateTime(2000));
-      await preferences.setUsername(null);
-      await preferences.setVToken(null);
-      await preferences.setVExpireDate(null);
-      await preferences.setBalance(null);
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    }
   }
 }
 

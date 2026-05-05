@@ -98,6 +98,17 @@ class Preferences {
     await preferences?.setInt('lastLoginTime', time.millisecondsSinceEpoch);
   }
 
+  Future<DateTime?> getLastCheckInDate() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    final timestamp = preferences?.getInt('lastCheckInDate');
+    return timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : null;
+  }
+
+  Future<void> setLastCheckInDate(DateTime date) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setInt('lastCheckInDate', date.millisecondsSinceEpoch);
+  }
+
   Future<String?> getVToken() async {
     final preferences = await sharedPreferencesCompleter.future;
     return preferences?.getString('vToken');

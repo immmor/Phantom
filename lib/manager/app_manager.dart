@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_clash/l10n/l10n.dart';
 
 class AppStateManager extends ConsumerStatefulWidget {
   final Widget child;
@@ -164,6 +165,21 @@ class AppSidebarContainer extends ConsumerWidget {
     });
   }
 
+  String getPageLabelName(PageLabel label) {
+    return switch (label) {
+      PageLabel.home => AppLocalizations.current.home,
+      PageLabel.dashboard => AppLocalizations.current.dashboard,
+      PageLabel.proxies => AppLocalizations.current.proxies,
+      PageLabel.profiles => AppLocalizations.current.profiles,
+      PageLabel.tools => AppLocalizations.current.tools,
+      PageLabel.logs => AppLocalizations.current.logs,
+      PageLabel.requests => AppLocalizations.current.requests,
+      PageLabel.resources => AppLocalizations.current.resources,
+      PageLabel.connections => AppLocalizations.current.connections,
+      PageLabel.mine => AppLocalizations.current.mine,
+    };
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final navigationState = ref.watch(navigationStateProvider);
@@ -211,7 +227,7 @@ class AppSidebarContainer extends ConsumerWidget {
                                 .map(
                                   (e) => NavigationRailDestination(
                                     icon: e.icon,
-                                    label: Text(Intl.message(e.label.name)),
+                                    label: Text(getPageLabelName(e.label)),
                                   ),
                                 )
                                 .toList(),

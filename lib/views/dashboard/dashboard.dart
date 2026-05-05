@@ -121,6 +121,25 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   }
 
   Future<void> _handleConnection() async {
+    // 检查用户是否登录
+    final username = await preferences.getUsername();
+    if (username == null) {
+      if (mounted) {
+        final res = await globalState.showMessage(
+          title: '提示',
+          message: const TextSpan(text: '请先登录再使用连接功能'),
+          confirmText: '去登录',
+        );
+        if (res == true && mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => const LoginDialog(),
+          );
+        }
+      }
+      return;
+    }
+
     final coreStatus = ref.read(coreStatusProvider);
     if (coreStatus == CoreStatus.connecting) {
       return;

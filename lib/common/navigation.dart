@@ -79,9 +79,9 @@ class Navigation {
         modes: [],
       ),
       NavigationItem(
-        icon: Icon(Icons.settings),
-        label: PageLabel.settings,
-        builder: (_) => const SettingsView(key: GlobalObjectKey(PageLabel.settings)),
+        icon: Icon(Icons.person),
+        label: PageLabel.mine,
+        builder: (_) => const SettingsView(key: GlobalObjectKey(PageLabel.mine)),
         modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
       ),
     ];

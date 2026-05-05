@@ -59,6 +59,11 @@ class AppLocalizations {
     return Intl.message('Rule', name: 'rule', desc: '', args: []);
   }
 
+  /// `首页`
+  String get home {
+    return Intl.message('首页', name: 'home', desc: '', args: []);
+  }
+
   /// `Global`
   String get global {
     return Intl.message('Global', name: 'global', desc: '', args: []);
@@ -207,6 +212,11 @@ class AppLocalizations {
   /// `Settings`
   String get settings {
     return Intl.message('Settings', name: 'settings', desc: '', args: []);
+  }
+
+  /// `我的`
+  String get mine {
+    return Intl.message('我的', name: 'mine', desc: '', args: []);
   }
 
   /// `Language`

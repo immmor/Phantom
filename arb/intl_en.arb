@@ -23,6 +23,7 @@
   "noProxyDesc": "Please create a profile or add a valid profile",
   "nullProfileDesc": "No profile, Please add a profile",
   "settings": "Settings",
+  "mine": "My",
   "language": "Language",
   "defaultText": "Default",
   "more": "More",

@@ -331,7 +331,7 @@ enum PageLabel {
   requests,
   resources,
   connections,
-  settings,
+  mine,
 }
 
 enum RuleAction {
