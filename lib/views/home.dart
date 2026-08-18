@@ -264,83 +264,131 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
         final isStart = ref.watch(isStartProvider);
         final coreStatus = ref.watch(coreStatusProvider);
         final isConnecting = coreStatus == CoreStatus.connecting;
-        
+        // Phantom 主题青色（与 phantom.svg 渐变一致）
+        const cyan = Color(0xFF00F7FF);
+        const cyanDeep = Color(0xFF00BDE8);
+
         return GestureDetector(
           onTap: isConnecting ? null : _handleConnection,
-          child: AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: isConnecting ? 1.0 : _pulseAnimation.value,
-                child: child,
-              );
-            },
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: isStart
-                      ? [
-                          Colors.greenAccent.withOpacity(0.8),
-                          Colors.green.withOpacity(0.5),
-                          Colors.green.withOpacity(0.2),
-                        ]
-                      : [
-                          context.colorScheme.primary.withOpacity(0.8),
-                          context.colorScheme.primary.withOpacity(0.5),
-                          context.colorScheme.primary.withOpacity(0.2),
-                        ],
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 190,
+                height: 190,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 外圈静态光环
+                    Container(
+                      width: 190,
+                      height: 190,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: (isStart ? cyan : Colors.white)
+                              .withValues(alpha: isStart ? 0.85 : 0.25),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    // 内圈呼吸发光环
+                    AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: isConnecting ? 1.0 : _pulseAnimation.value,
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        width: 156,
+                        height: 156,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: (isStart ? cyan : cyanDeep)
+                                .withValues(alpha: isStart ? 0.6 : 0.35),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isStart ? cyan : cyanDeep).withValues(
+                                alpha: isStart ? 0.5 : 0.22,
+                              ),
+                              blurRadius: isStart ? 34 : 20,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 幽灵本体：未连接=暗色剪影(休眠)，已连接=原色点亮(眼睛发光)
+                    SizedBox(
+                      width: 96,
+                      height: 96,
+                      child: isConnecting
+                          ? const CircularProgressIndicator(
+                              strokeWidth: 5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            )
+                          : SvgPicture.asset(
+                              'assets/images/phantom.svg',
+                              width: 96,
+                              height: 96,
+                              colorFilter: isStart
+                                  ? null
+                                  : const ColorFilter.mode(
+                                      Color(0xFF9E9E9E),
+                                      BlendMode.srcIn,
+                                    ),
+                            ),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isStart ? Colors.green : context.colorScheme.primary)
-                        .withOpacity(0.4),
-                    blurRadius: 30,
-                    spreadRadius: 5,
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isStart ? cyan : Colors.grey.shade500,
+                      boxShadow: isStart
+                          ? [
+                              BoxShadow(
+                                color: cyan.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Text(
+                      isConnecting
+                          ? '连接中…'
+                          : (isStart ? '已连接' : '点击连接'),
+                      key: ValueKey('$isStart-$isConnecting'),
+                      style: TextStyle(
+                        color: isStart ? cyan : Colors.grey.shade400,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Center(
-                child: isConnecting
-                    ? SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 4,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            context.colorScheme.onPrimary,
-                          ),
-                        ),
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/images/phantom.svg',
-                            width: 72,
-                            height: 72,
-                            // colorFilter: ColorFilter.mode(
-                            //   isStart ? Colors.white : context.colorScheme.onPrimary,
-                            //   BlendMode.srcIn,
-                            // ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isStart ? '断开' : '连接',
-                            style: TextStyle(
-                              color: isStart
-                                  ? Colors.white
-                                  : context.colorScheme.onPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
+            ],
           ),
         );
       },

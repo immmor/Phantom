@@ -22,6 +22,7 @@ class AppController {
   late final WidgetRef _ref;
   bool isAttach = false;
   bool _trafficLimitDisconnected = false;
+  int? _originalPrimaryColor; // 首次连接前用户设置的主题色，断开时恢复
 
   static AppController? _instance;
 
@@ -63,6 +64,8 @@ extension InitControllerExt on AppController {
     await _connectCore();
     await _initCore();
     await _initStatus();
+    // 启动时根据连接状态纠正主题色（防止持久化残留青色）
+    _applyConnectionTheme(_ref.read(isStartProvider));
     _ref.read(initProvider.notifier).value = true;
     toPage(PageLabel.home);
   }
@@ -207,6 +210,21 @@ extension InitControllerExt on AppController {
 extension StateControllerExt on AppController {
   Config get config {
     return _ref.read(configProvider);
+  }
+
+  /// 用于持久化的配置：已连接时的青色主题色不写盘，回退为用户原主题色
+  Config get savableConfig {
+    final c = _ref.read(configProvider);
+    final primary = c.themeProps.primaryColor;
+    // 仅当当前是连接态青色时才回退，其余情况原样保存（保留用户自定义色）
+    if (primary != connectedPrimaryColor) {
+      return c;
+    }
+    return c.copyWith(
+      themeProps: c.themeProps.copyWith(
+        primaryColor: _originalPrimaryColor ?? defaultPrimaryColor,
+      ),
+    );
   }
 
   bool get isMobile {
@@ -556,6 +574,26 @@ extension SetupControllerExt on AppController {
     _ref.read(requestsProvider.notifier).value = FixedList(500);
   }
 
+  /// 根据连接状态切换主题色：已连接=青色，断开=恢复用户原主题色
+  void _applyConnectionTheme(bool isStart) {
+    final notifier = _ref.read(themeSettingProvider.notifier);
+    notifier.update((state) {
+      if (isStart) {
+        // 记录首次连接前的主题色；从未设置过（null 跟随系统动态色）
+        // 或已残留青色（旧版本误写盘）时，以默认粉米色兜底
+        final current = state.primaryColor;
+        _originalPrimaryColor ??=
+            (current == null || current == connectedPrimaryColor)
+                ? defaultPrimaryColor
+                : current;
+        return state.copyWith(primaryColor: connectedPrimaryColor);
+      }
+      return state.copyWith(
+        primaryColor: _originalPrimaryColor ?? defaultPrimaryColor,
+      );
+    });
+  }
+
   Future<void> updateStatus(bool isStart, {bool isInit = false}) async {
     if (isStart) {
       // 重新连接时重置流量限额断开标记，保证新会话可再次触发限额断开
@@ -563,12 +601,14 @@ extension SetupControllerExt on AppController {
       if (!isInit) {
         final res = await tryStartCore(true);
         if (res) {
+          _applyConnectionTheme(true);
           return;
         }
         if (!_ref.read(initProvider)) {
           return;
         }
         await globalState.handleStart([updateRunTime, updateTraffic]);
+        _applyConnectionTheme(true);
         applyProfileDebounce(force: true, silence: true);
       } else {
         globalState.needInitStatus = false;
@@ -578,9 +618,11 @@ extension SetupControllerExt on AppController {
             await globalState.handleStart([updateRunTime, updateTraffic]);
           },
         );
+        _applyConnectionTheme(true);
       }
     } else {
       await globalState.handleStop();
+      _applyConnectionTheme(false);
       coreController.resetTraffic();
       _ref.read(trafficsProvider.notifier).clear();
       _ref.read(totalTrafficProvider.notifier).value = Traffic();
@@ -862,7 +904,7 @@ extension SystemControllerExt on AppController {
   Future<void> handleExit([bool needSave = false]) async {
     try {
       await Future.wait([
-        if (needSave) preferences.saveConfig(config),
+        if (needSave) preferences.saveConfig(savableConfig),
         if (macOS != null) macOS!.updateDns(true),
         if (proxy != null) proxy!.stopProxy(),
         if (tray != null) tray!.destroy(),
@@ -1068,7 +1110,7 @@ extension BackBlockControllExt on AppController {
 extension StoreControllerExt on AppController {
   void savePreferencesDebounce() {
     debouncer.call(FunctionTag.savePreferences, () async {
-      await preferences.saveConfig(config);
+      await preferences.saveConfig(savableConfig);
     });
   }
 

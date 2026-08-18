@@ -101,6 +101,9 @@ const profilesStoreKey = PageStorageKey<String>('profiles');
 
 const defaultPrimaryColor = 0XFFD8C0C3;
 
+/// 已连接时的主题色（青色，与 phantom.svg 渐变同源）
+const connectedPrimaryColor = 0xFF00BDE8;
+
 double getWidgetHeight(num lines) {
   final space = 14.mAp;
   return max(lines * (80.ap + space) - space, 0);

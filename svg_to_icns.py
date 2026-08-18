@@ -1,20 +1,23 @@
-import os
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
+"""使用 resvg 将 phantom.svg 渲染为 macOS AppIcon.appiconset（Dock 图标）。
 
-svg_path = "assets/images/phantom.svg"
-output_dir = "macos/Runner/Assets.xcassets/AppIcon.appiconset"
+依赖:
+  - resvg (brew install resvg)   # 首选渲染器
+  - Pillow (pip install pillow)  # 缩放
+macOS 上若没有 resvg，会降级使用系统自带的 qlmanage（Quick Look）渲染。
+"""
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
 
-# 直接渲染原始 SVG（青色渐变幽灵），不替换颜色
-drawing = svg2rlg(svg_path)
-if drawing is None:
-    print("Failed to load SVG")
-    exit(1)
+from PIL import Image
 
-os.makedirs(output_dir, exist_ok=True)
+SVG_PATH = Path("assets/images/phantom.svg")
+OUTPUT_DIR = Path("macos/Runner/Assets.xcassets/AppIcon.appiconset")
 
-# macOS AppIcon.appiconset 所需尺寸（文件名与 Contents.json 对应）
-sizes = {
+# 与 Contents.json 严格对应
+SIZES = {
     "app_icon_16.png": 16,
     "app_icon_32.png": 32,
     "app_icon_64.png": 64,
@@ -24,11 +27,69 @@ sizes = {
     "app_icon_1024.png": 1024,
 }
 
-for filename, size in sizes.items():
-    img = renderPM.drawToPIL(drawing, width=size, height=size)
-    img = img.convert("RGBA")
-    output_path = os.path.join(output_dir, filename)
-    img.save(output_path, format="PNG")
-    print(f"Saved {output_path} ({size}x{size})")
 
-print("Done. Rebuild with: flutter build macos --release")
+def render_with_resvg(svg: Path, png: Path, size: int = 1024) -> bool:
+    """用 resvg 渲染 SVG 为透明 PNG，成功返回 True。"""
+    if shutil.which("resvg") is None:
+        return False
+    cmd = ["resvg", "-w", str(size), "-h", str(size), str(svg), str(png)]
+    result = subprocess.run(cmd, capture_output=True)
+    if result.returncode != 0:
+        print(f"resvg failed: {result.stderr.decode(errors='ignore')}")
+        return False
+    return True
+
+
+def render_with_qlmanage(svg: Path, png: Path, size: int = 1024) -> bool:
+    """macOS 兜底：用 Quick Look 渲染（仅 macOS，可能有背景色偏差）。"""
+    if sys.platform != "darwin" or shutil.which("qlmanage") is None:
+        return False
+    with tempfile.TemporaryDirectory() as tmp:
+        result = subprocess.run(
+            ["qlmanage", "-t", "-s", str(size), "-o", tmp, str(svg)],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            print(f"qlmanage failed: {result.stderr.decode(errors='ignore')}")
+            return False
+        candidate = Path(tmp) / f"{svg.name}.png"
+        if not candidate.exists():
+            print("qlmanage produced no output")
+            return False
+        png.write_bytes(candidate.read_bytes())
+    return True
+
+
+def main() -> None:
+    if not SVG_PATH.exists():
+        print(f"SVG not found: {SVG_PATH}")
+        sys.exit(1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        png_1024 = Path(tmp) / "phantom_1024.png"
+
+        if render_with_resvg(SVG_PATH, png_1024):
+            print("Rendered with resvg")
+        elif render_with_qlmanage(SVG_PATH, png_1024):
+            print("Rendered with qlmanage (Quick Look fallback)")
+        else:
+            print("No SVG renderer available. Install resvg: brew install resvg")
+            sys.exit(1)
+
+        source = Image.open(png_1024).convert("RGBA")
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+        for filename, size in SIZES.items():
+            if size == source.width:
+                img = source
+            else:
+                img = source.resize((size, size), Image.LANCZOS)
+            output_path = OUTPUT_DIR / filename
+            img.save(output_path, format="PNG")
+            print(f"Saved {output_path} ({size}x{size})")
+
+    print("Done. Rebuild with: flutter build macos --release")
+
+
+if __name__ == "__main__":
+    main()
