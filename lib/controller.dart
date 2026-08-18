@@ -7,6 +7,7 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
+import 'package:fl_clash/widgets/user_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,6 +21,7 @@ class AppController {
   late final BuildContext _context;
   late final WidgetRef _ref;
   bool isAttach = false;
+  bool _trafficLimitDisconnected = false;
 
   static AppController? _instance;
 
@@ -556,6 +558,8 @@ extension SetupControllerExt on AppController {
 
   Future<void> updateStatus(bool isStart, {bool isInit = false}) async {
     if (isStart) {
+      // 重新连接时重置流量限额断开标记，保证新会话可再次触发限额断开
+      _trafficLimitDisconnected = false;
       if (!isInit) {
         final res = await tryStartCore(true);
         if (res) {
@@ -1124,13 +1128,59 @@ extension CommonControllerExt on AppController {
   }
 
   Future<void> updateTraffic() async {
-    final onlyStatisticsProxy = _ref.read(
-      appSettingProvider.select((state) => state.onlyStatisticsProxy),
-    );
+    // 已断开连接时不再采集流量，防止定时任务残留导致状态反复刷新
+    if (_ref.read(runTimeProvider) == null) return;
+    // 规则模式下命中 DIRECT 的流量不算作代理流量，只统计走代理节点的部分；
+    // 全局模式下所有流量都走代理，统计全部；direct 模式保持用户设置。
+    final mode = _ref.read(patchClashConfigProvider.select((state) => state.mode));
+    final onlyStatisticsProxy = switch (mode) {
+      Mode.rule => true,
+      Mode.global => false,
+      Mode.direct => _ref.read(
+          appSettingProvider.select((state) => state.onlyStatisticsProxy),
+        ),
+    };
     final traffic = await coreController.getTraffic(onlyStatisticsProxy);
     _ref.read(trafficsProvider.notifier).addTraffic(traffic);
-    _ref.read(totalTrafficProvider.notifier).value = await coreController
-        .getTotalTraffic(onlyStatisticsProxy);
+    final current = await coreController.getTotalTraffic(onlyStatisticsProxy);
+    final previous = _ref.read(totalTrafficProvider);
+    // 只把本次核心运行的增量并入历史流量缓存（跨重启累计），避免重复计数
+    if (previous.up > 0 || previous.down > 0) {
+      final deltaUp = (current.up - previous.up)
+          .clamp(0, double.infinity)
+          .toDouble();
+      final deltaDown = (current.down - previous.down)
+          .clamp(0, double.infinity)
+          .toDouble();
+      if (deltaUp > 0 || deltaDown > 0) {
+        await _ref
+            .read(cachedTrafficProvider.notifier)
+            .addTraffic(Traffic(up: deltaUp, down: deltaDown));
+      }
+    }
+    _ref.read(totalTrafficProvider.notifier).value = current;
+    await _handleTrafficLimit();
+  }
+
+  /// 流量达到限额时自动断开连接
+  Future<void> _handleTrafficLimit() async {
+    if (_trafficLimitDisconnected) return;
+    if (_ref.read(runTimeProvider) == null) return;
+    final cached = _ref.read(cachedTrafficProvider);
+    final usedBytes = cached.up + cached.down;
+    const baseMaxBytes = 2 * 1024 * 1024 * 1024; // 2GB 基础配额
+    final maxBytes = baseMaxBytes + checkInBonusTraffic.value;
+    if (usedBytes < maxBytes) return;
+    _trafficLimitDisconnected = true;
+    commonPrint.log(
+      'traffic limit reached, disconnect',
+      logLevel: LogLevel.warning,
+    );
+    await updateStatus(false);
+    globalState.showMessage(
+      title: appLocalizations.tip,
+      message: const TextSpan(text: '已达流量限额，已自动断开连接'),
+    );
   }
 
   Future<T?> loadingRun<T>(

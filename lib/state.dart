@@ -32,6 +32,7 @@ class GlobalState {
   final navigatorKey = GlobalKey<NavigatorState>();
   ProviderContainer? container;
   Timer? timer;
+  bool _updateTasksStopped = false;
   bool isPre = false;
   late final String coreSHA256;
   late final PackageInfo packageInfo;
@@ -114,6 +115,7 @@ class GlobalState {
   }
 
   Future<void> startUpdateTasks([UpdateTasks? tasks]) async {
+    if (_updateTasksStopped) return;
     if (timer != null && timer!.isActive == true) return;
     if (tasks != null) {
       this.tasks = tasks;
@@ -122,6 +124,8 @@ class GlobalState {
       return;
     }
     await executorUpdateTask();
+    // 任务执行期间可能收到停止请求（如流量限额断开），停止后不再重新调度
+    if (_updateTasksStopped) return;
     timer = Timer(const Duration(seconds: 1), () async {
       startUpdateTasks();
     });
@@ -135,12 +139,15 @@ class GlobalState {
   }
 
   void stopUpdateTasks() {
+    _updateTasksStopped = true;
     if (timer == null || timer?.isActive == false) return;
     timer?.cancel();
     timer = null;
   }
 
   Future<void> handleStart([UpdateTasks? tasks]) async {
+    // 重置停止标志，允许新会话重新调度定时任务
+    _updateTasksStopped = false;
     startTime ??= DateTime.now();
     await coreController.startListener();
     await service?.start();

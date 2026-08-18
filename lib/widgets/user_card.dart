@@ -7,6 +7,7 @@ import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final checkInBonusTraffic = ValueNotifier<double>(0.0);
 
@@ -94,6 +95,34 @@ Future<String?> renewVip(int duration) async {
   }
 }
 
+/// 从服务器静默刷新余额（失败时保留本地缓存值）
+Future<void> refreshUserBalance(WidgetRef ref) async {
+  final username = await preferences.getUsername();
+  if (username == null) return;
+  try {
+    final dio = Dio()
+      ..httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.findProxy = (uri) => 'DIRECT';
+          client.badCertificateCallback = (_, host, cert) => true;
+          return client;
+        },
+      );
+    final res = await dio.get(
+      'https://api.immmor.com/api/balance',
+      queryParameters: {'username': username},
+    );
+    if (res.data['code'] == 200) {
+      final balance = (res.data['balance'] as num?)?.toDouble();
+      await preferences.setBalance(balance);
+      ref.invalidate(phantomHomeProvider);
+    }
+  } catch (e) {
+    debugPrint('刷新余额失败：$e');
+  }
+}
+
 class RenewButton extends ConsumerWidget {
   final int duration;
   final double price;
@@ -145,18 +174,23 @@ final cachedTrafficProvider =
 );
 
 class CachedTrafficNotifier extends Notifier<CachedTraffic> {
+  bool _initialized = false;
+
   @override
   CachedTraffic build() {
     return CachedTraffic();
   }
 
   Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
     final cachedUp = await preferences.getCachedTotalUpTraffic() ?? 0;
     final cachedDown = await preferences.getCachedTotalDownTraffic() ?? 0;
     state = CachedTraffic(up: cachedUp, down: cachedDown);
   }
 
   Future<void> addTraffic(Traffic traffic) async {
+    await init();
     final newUp = state.up + traffic.up;
     final newDown = state.down + traffic.down;
     await preferences.setCachedTotalUpTraffic(newUp);
@@ -552,15 +586,10 @@ class UserCardWidget extends ConsumerWidget {
   static Widget _buildTrafficRow(BuildContext context, WidgetRef ref, PhantomUserInfo userInfo) {
     return Consumer(
       builder: (context, ref, child) {
+        // 流量增量累加与限额判断已移到 controller.updateTraffic 数据层，
+        // 这里只做展示，避免卡片未挂载时流量漏记
         final cachedTraffic = ref.watch(cachedTrafficProvider);
-        final currentTraffic = ref.watch(totalTrafficProvider);
-
-        ref.listen(totalTrafficProvider, (previous, next) {
-          if (previous == null || (previous.up == 0 && previous.down == 0)) return;
-          ref.read(cachedTrafficProvider.notifier).addTraffic(next);
-        });
-
-        final usedBytes = cachedTraffic.up + cachedTraffic.down + currentTraffic.up + currentTraffic.down;
+        final usedBytes = cachedTraffic.up + cachedTraffic.down;
         const baseMaxBytes = 2 * 1024 * 1024 * 1024; // 2GB 基础配额
         final maxBytes = baseMaxBytes + checkInBonusTraffic.value; // 总配额 = 2GB + 签到奖励
         final progress = (usedBytes / maxBytes).clamp(0.0, 1.0);
@@ -636,6 +665,8 @@ class UserCardWidget extends ConsumerWidget {
   }
 
   static void _showVipBottomSheet(BuildContext context, WidgetRef ref, PhantomUserInfo userInfo) {
+    // 打开弹窗时静默刷新余额，成功后弹窗内会自动显示新值
+    refreshUserBalance(ref);
     showModalBottomSheet(
       context: context,
       builder: (context) => Consumer(
@@ -679,12 +710,44 @@ class UserCardWidget extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     if (info.balance != null)
-                      Text(
-                        '余额: ¥${info.balance!.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: info.isVip ? Colors.green.shade700 : Colors.grey.shade700,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '余额: ¥${info.balance!.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: info.isVip ? Colors.green.shade700 : Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => launchUrl(Uri.parse('https://funbua.uk/pay')),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade600,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.flash_on, size: 14, color: Colors.white),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    '充值',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     const SizedBox(height: 24),
                     Row(

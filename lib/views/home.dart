@@ -79,6 +79,8 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
+                _buildNoticeMarquee(),
+                const SizedBox(height: 16),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -97,6 +99,58 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildNoticeMarquee() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final messagesAsync = ref.watch(userMessagesProvider);
+        
+        return messagesAsync.when(
+          data: (messagesData) {
+            final messages = messagesData?['messages'] as List<dynamic>? ?? [];
+            if (messages.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            
+            final noticeText = messages.map((m) => m['content'] as String? ?? '').join('  •  ');
+            
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.blue.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.notifications_none, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Text(
+                        noticeText,
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
     );
   }
 
@@ -267,10 +321,10 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
                             'assets/images/phantom.svg',
                             width: 72,
                             height: 72,
-                            colorFilter: ColorFilter.mode(
-                              isStart ? Colors.white : context.colorScheme.onPrimary,
-                              BlendMode.srcIn,
-                            ),
+                            // colorFilter: ColorFilter.mode(
+                            //   isStart ? Colors.white : context.colorScheme.onPrimary,
+                            //   BlendMode.srcIn,
+                            // ),
                           ),
                           const SizedBox(height: 8),
                           Text(

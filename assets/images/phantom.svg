@@ -1,47 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
   <defs>
-    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#8B9DC3;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#5D6D7E;stop-opacity:1" />
+    <linearGradient id="phantomGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f7ff"/>
+      <stop offset="55%" stop-color="#00e8f5"/>
+      <stop offset="100%" stop-color="#00bde8"/>
     </linearGradient>
-    <linearGradient id="hatGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#2C3E50;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1A252F;stop-opacity:1" />
+    <linearGradient id="trailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f3ff" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#00f3ff" stop-opacity=".8"/>
+      <stop offset="100%" stop-color="#00bde8" stop-opacity="0"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.1  0 0.7 0 0 0.15  0 0 1 0 0.95  0 0 0 .8 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <!-- Ghost Body -->
-  <path d="M256 480 C140 480 80 380 80 280 L80 200 C80 180 95 165 115 165 C135 165 150 180 150 200 L150 260
-           C150 260 130 250 130 220 C130 190 155 170 180 170 C205 170 230 190 230 220
-           C230 220 210 200 210 180 C210 150 235 130 256 130 C277 130 302 150 302 180
-           C302 200 282 220 282 220 C282 190 307 170 332 170 C357 170 382 190 382 220
-           C382 250 362 260 362 260 L362 200 C362 180 377 165 397 165 C417 165 432 180 432 200 L432 280
-           C432 380 372 480 256 480 Z"
-        fill="url(#bodyGrad)" filter="url(#glow)"/>
+  <!-- The Phantom icon, used as the P -->
+  <g transform="translate(12 2) scale(2)" filter="url(#glow)">
+    <!-- speed trails -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M3 55 H48" stroke="url(#trailGrad)" stroke-width="7"/>
+      <path d="M0 72 H58" stroke="url(#trailGrad)" stroke-width="6"/>
+      <path d="M8 88 H53" stroke="url(#trailGrad)" stroke-width="5"/>
+      <path d="M20 103 H68" stroke="url(#trailGrad)" stroke-width="4"/>
+    </g>
 
-  <!-- Ghost Eyes -->
-  <ellipse cx="195" cy="230" rx="25" ry="30" fill="#1A1A2E"/>
-  <ellipse cx="317" cy="230" rx="25" ry="30" fill="#1A1A2E"/>
-  <ellipse cx="200" cy="225" rx="8" ry="10" fill="#FFFFFF"/>
-  <ellipse cx="322" cy="225" rx="8" ry="10" fill="#FFFFFF"/>
-
-  <!-- Ghost Mouth -->
-  <path d="M220 290 Q256 330 292 290" stroke="#1A1A2E" stroke-width="8" fill="none" stroke-linecap="round"/>
-
-  <!-- Top Hat -->
-  <rect x="156" y="60" width="200" height="80" rx="5" fill="url(#hatGrad)"/>
-  <rect x="126" y="130" width="260" height="20" rx="3" fill="url(#hatGrad)"/>
-
-  <!-- Hat Band -->
-  <rect x="156" y="115" width="200" height="15" fill="#E74C3C"/>
-
-  <!-- Hat Highlight -->
-  <rect x="166" y="70" width="80" height="8" rx="4" fill="#FFFFFF" opacity="0.2"/>
+    <path d="M50,40 C50,40 85,25 125,40 C155,51 155,90 135,115 C115,140 85,165 85,165 L65,165 C65,165 75,130 75,105 C75,75 50,75 50,40 Z" fill="url(#phantomGrad)"/>
+    <!-- dark phantom face -->
+    <path d="M101 56 C119 53 135 64 137 79 C139 95 128 108 113 111 C99 114 86 104 84 89 C82 75 88 61 101 56Z" fill="#090817"/>
+    <ellipse cx="103" cy="76" rx="5" ry="8" fill="#ffffff" transform="rotate(-10 103 76)"/>
+    <ellipse cx="123" cy="75" rx="5" ry="8" fill="#ffffff" transform="rotate(22 123 75)"/>
+  </g>
 </svg>
