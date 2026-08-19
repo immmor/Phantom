@@ -5,11 +5,6 @@
       <stop offset="55%" stop-color="#00e8f5"/>
       <stop offset="100%" stop-color="#00bde8"/>
     </linearGradient>
-    <linearGradient id="trailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#00f3ff" stop-opacity="0"/>
-      <stop offset="45%" stop-color="#00f3ff" stop-opacity=".8"/>
-      <stop offset="100%" stop-color="#00bde8" stop-opacity="0"/>
-    </linearGradient>
     <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
       <feGaussianBlur stdDeviation="9" result="blur"/>
       <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.1  0 0.7 0 0 0.15  0 0 1 0 0.95  0 0 0 .8 0"/>
@@ -18,15 +13,7 @@
   </defs>
 
   <!-- The Phantom icon, used as the P -->
-  <g transform="translate(12 2) scale(2)" filter="url(#glow)">
-    <!-- speed trails -->
-    <g fill="none" stroke-linecap="round">
-      <path d="M3 55 H48" stroke="url(#trailGrad)" stroke-width="7"/>
-      <path d="M0 72 H58" stroke="url(#trailGrad)" stroke-width="6"/>
-      <path d="M8 88 H53" stroke="url(#trailGrad)" stroke-width="5"/>
-      <path d="M20 103 H68" stroke="url(#trailGrad)" stroke-width="4"/>
-    </g>
-
+  <g transform="translate(-28 2) scale(2)" filter="url(#glow)">
     <path d="M50,40 C50,40 85,25 125,40 C155,51 155,90 135,115 C115,140 85,165 85,165 L65,165 C65,165 75,130 75,105 C75,75 50,75 50,40 Z" fill="url(#phantomGrad)"/>
     <!-- dark phantom face -->
     <path d="M101 56 C119 53 135 64 137 79 C139 95 128 108 113 111 C99 114 86 104 84 89 C82 75 88 61 101 56Z" fill="#090817"/>

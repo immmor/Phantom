@@ -1,4 +1,5 @@
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
@@ -276,6 +277,10 @@ class _LoginItem extends ConsumerWidget {
       cancelText: '取消',
     );
     if (confirm == true) {
+      // 退出登录时先断开当前连接
+      if (ref.read(isStartProvider)) {
+        await appController.updateStatus(false);
+      }
       await preferences.setLastLoginTime(DateTime(2000));
       await preferences.setUsername(null);
       await preferences.setVToken(null);

@@ -16,9 +16,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/start_button.dart';
 
 final _userInfoProvider = FutureProvider<(String?, double?)>((ref) async {
-  final expireDate = await preferences.getVExpireDate();
-  final balance = await preferences.getBalance();
-  return (expireDate, balance);
+  // 跟随 phantomHomeProvider，保证与用户卡片的 VIP 状态/余额保持同步
+  final info = await ref.watch(phantomHomeProvider.future);
+  if (info == null) return (null, null);
+  final expireStr = info.expireDate?.toIso8601String();
+  return (
+    expireStr == null ? null : expireStr.substring(0, 19).replaceFirst('T', ' '),
+    info.balance,
+  );
 });
 
 Future<String?> _renewVip(int duration) async {
@@ -34,14 +39,14 @@ Future<String?> _renewVip(int duration) async {
           return client;
         },
       );
-    final price = duration == 365 ? 450.0 : 40.0;
-    final res = await dio.post(
+    final price = await getVipPrice(duration);
+    final res = await dio.put(
       'https://api.immmor.com/api/open-vip',
       data: {'username': username, 'duration': duration, 'price': price},
     );
     if (res.data['code'] == 200) {
       final data = res.data['data'];
-      await preferences.setBalance(data['balance']);
+      await preferences.setBalance((data['balance'] as num?)?.toDouble());
       await preferences.setVExpireDate(data['v_expire_date']);
       await preferences.setVToken(data['v_token']);
       return null;
@@ -54,38 +59,44 @@ Future<String?> _renewVip(int duration) async {
 
 class _RenewButton extends ConsumerWidget {
   final int duration;
-  final double price;
   final bool isVip;
 
-  const _RenewButton({required this.duration, required this.price, required this.isVip});
+  const _RenewButton({required this.duration, required this.isVip});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ElevatedButton(
-      onPressed: () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('确认续费'),
-            content: Text('确定要${isVip ? '续费' : '开通'} VIP 吗？\n${duration == 365 ? '年付' : '月付'}：¥$price'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('确定')),
-            ],
-          ),
+    return FutureBuilder<double>(
+      future: getVipPrice(duration),
+      builder: (context, snapshot) {
+        final price = snapshot.data ?? (duration == 365 ? 350.0 : 30.0);
+        return ElevatedButton(
+          onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('确认续费'),
+                content: Text('确定要${isVip ? '续费' : '开通'} VIP 吗？\n${duration == 365 ? '年付' : '月付'}：¥$price'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('确定')),
+                ],
+              ),
+            );
+            if (confirm == true && context.mounted) {
+              final msg = await _renewVip(duration);
+              if (msg == null && context.mounted) {
+                ref.invalidate(phantomHomeProvider);
+                ref.invalidate(_userInfoProvider);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isVip ? '续费成功' : '开通成功')));
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? '续费失败')));
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: isVip ? Colors.green : Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), minimumSize: Size.zero),
+          child: Text('${duration == 365 ? '年付' : '月付'} ¥$price', style: const TextStyle(fontSize: 12)),
         );
-        if (confirm == true && context.mounted) {
-          final msg = await _renewVip(duration);
-          if (msg == null && context.mounted) {
-            ref.invalidate(_userInfoProvider);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isVip ? '续费成功' : '开通成功')));
-          } else if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? '续费失败')));
-          }
-        }
       },
-      style: ElevatedButton.styleFrom(backgroundColor: isVip ? Colors.green : Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), minimumSize: Size.zero),
-      child: Text('${duration == 365 ? '年付' : '月付'} ¥$price', style: const TextStyle(fontSize: 12)),
     );
   }
 }
@@ -391,9 +402,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _RenewButton(duration: 30, price: 40, isVip: isVip),
+                                  _RenewButton(duration: 30, isVip: isVip),
                                   const SizedBox(width: 8),
-                                  _RenewButton(duration: 365, price: 450, isVip: isVip),
+                                  _RenewButton(duration: 365, isVip: isVip),
                                 ],
                               ),
                             ],

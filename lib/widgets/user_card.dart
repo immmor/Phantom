@@ -5,6 +5,7 @@ import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/widgets/webview_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -64,6 +65,15 @@ final lastCheckInDateProvider = FutureProvider<DateTime?>((ref) async {
   return await preferences.getLastCheckInDate();
 });
 
+/// 获取指定时长的 VIP 价格（优先读取本地价格计划，失败时使用默认值）
+Future<double> getVipPrice(int duration) async {
+  final pricePlan = await preferences.getPricePlan();
+  if (duration == 365) {
+    return (pricePlan?['annual_discount'] as num?)?.toDouble() ?? 350.0;
+  }
+  return (pricePlan?['monthly_discount'] as num?)?.toDouble() ?? 30.0;
+}
+
 Future<String?> renewVip(int duration) async {
   final username = await preferences.getUsername();
   if (username == null) return '用户未登录';
@@ -77,14 +87,14 @@ Future<String?> renewVip(int duration) async {
           return client;
         },
       );
-    final price = duration == 365 ? 450.0 : 40.0;
-    final res = await dio.post(
+    final price = await getVipPrice(duration);
+    final res = await dio.put(
       'https://api.immmor.com/api/open-vip',
       data: {'username': username, 'duration': duration, 'price': price},
     );
     if (res.data['code'] == 200) {
       final data = res.data['data'];
-      await preferences.setBalance(data['balance']);
+      await preferences.setBalance((data['balance'] as num?)?.toDouble());
       await preferences.setVExpireDate(data['v_expire_date']);
       await preferences.setVToken(data['v_token']);
       return null;
@@ -123,40 +133,69 @@ Future<void> refreshUserBalance(WidgetRef ref) async {
   }
 }
 
+/// 打开充值页面：Android / iOS / macOS 使用应用内 WebView，其余平台回退外部浏览器
+void openPayPage(BuildContext context) {
+  const payUrl = 'https://funbua.uk/pay';
+  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const InAppWebViewPage(url: payUrl, title: '充值'),
+      ),
+    );
+    return;
+  }
+  launchUrl(Uri.parse(payUrl));
+}
+
 class RenewButton extends ConsumerWidget {
   final int duration;
-  final double price;
   final bool isVip;
 
-  const RenewButton({super.key, required this.duration, required this.price, required this.isVip});
+  const RenewButton({super.key, required this.duration, required this.isVip});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ElevatedButton(
-      onPressed: () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('确认续费'),
-            content: Text('确定要${isVip ? '续费' : '开通'} VIP 吗？\n${duration == 365 ? '年付' : '月付'}：¥$price'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('确定')),
-            ],
-          ),
+    return FutureBuilder<double>(
+      future: getVipPrice(duration),
+      builder: (context, snapshot) {
+        final price = snapshot.data ?? (duration == 365 ? 350.0 : 30.0);
+        return ElevatedButton(
+          onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('确认续费'),
+                content: Text('确定要${isVip ? '续费' : '开通'} VIP 吗？\n${duration == 365 ? '年付' : '月付'}：¥$price'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('确定')),
+                ],
+              ),
+            );
+            if (confirm == true && context.mounted) {
+              final msg = await renewVip(duration);
+              if (context.mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                if (msg == null) {
+                  ref.invalidate(phantomHomeProvider);
+                }
+                Navigator.of(context).pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      msg == null
+                          ? (isVip ? '续费成功' : '开通成功')
+                          : (msg ?? '续费失败'),
+                    ),
+                  ),
+                );
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: isVip ? Colors.green : Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14), minimumSize: const Size(0, 44)),
+          child: Text('${duration == 365 ? '年付' : '月付'} ¥$price', style: const TextStyle(fontSize: 12)),
         );
-        if (confirm == true && context.mounted) {
-          final msg = await renewVip(duration);
-          if (msg == null && context.mounted) {
-            ref.invalidate(phantomHomeProvider);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isVip ? '续费成功' : '开通成功')));
-          } else if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? '续费失败')));
-          }
-        }
       },
-      style: ElevatedButton.styleFrom(backgroundColor: isVip ? Colors.green : Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14), minimumSize: const Size(0, 44)),
-      child: Text('${duration == 365 ? '年付' : '月付'} ¥$price', style: const TextStyle(fontSize: 12)),
     );
   }
 }
@@ -722,7 +761,7 @@ class UserCardWidget extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           InkWell(
-                            onTap: () => launchUrl(Uri.parse('https://funbua.uk/pay')),
+                            onTap: () => openPayPage(context),
                             borderRadius: BorderRadius.circular(6),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -753,11 +792,11 @@ class UserCardWidget extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: RenewButton(duration: 30, price: 40, isVip: info.isVip),
+                          child: RenewButton(duration: 30, isVip: info.isVip),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: RenewButton(duration: 365, price: 450, isVip: info.isVip),
+                          child: RenewButton(duration: 365, isVip: info.isVip),
                         ),
                       ],
                     ),

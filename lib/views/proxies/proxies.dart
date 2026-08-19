@@ -1,7 +1,10 @@
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/common.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/models/state.dart';
+import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/proxies/list.dart';
 import 'package:fl_clash/views/proxies/providers.dart';
@@ -27,6 +30,23 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
 
   List<Widget> _buildActions() {
     return [
+      IconButton(
+        onPressed: () async {
+          final profiles = ref.read(profilesProvider);
+          final currentId = ref.read(currentProfileIdProvider);
+          await appController.loadingRun(() async {
+            for (final p in profiles) {
+              if (p.id == currentId && p.type == ProfileType.url) {
+                // 重新请求当前订阅链接
+                await appController.updateProfile(p);
+                break;
+              }
+            }
+            await appController.updateGroups();
+          }, tag: LoadingTag.proxies);
+        },
+        icon: const Icon(Icons.refresh),
+      ),
       if (_isTab)
         IconButton(
           onPressed: () {

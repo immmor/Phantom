@@ -1771,12 +1771,12 @@ proxies:
     tls: false
     skip-cert-verify: true
 proxy-groups:
-  - name: "🚀 免费节点已到期"
+  - name: "🚀 免费节点已到期，请重新签到"
     type: select
     proxies:
       - FREE_EXPIRED_SIGNIN_REQUIRED
 rules:
-  - MATCH,🚀 免费节点已到期
+  - MATCH,🚀 免费节点已到期，请重新签到
 `;
             return new Response(mockConfig, {
               headers: {
@@ -1850,7 +1850,7 @@ rules:
           if (!user.free_expire_date || new Date(user.free_expire_date) < now) {
             const mockConfig = `{
   "v": "2",
-  "ps": "🚀 免费节点已到期",
+  "ps": "🚀 免费节点已到期，请重新签到",
   "add": "expired.freenode.local",
   "port": "8080",
   "id": "00000000-0000-0000-0000-000000000000",

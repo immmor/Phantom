@@ -70,6 +70,9 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
         await preferences.setVToken(vToken);
         await preferences.setVExpireDate(vExpireDate);
         await preferences.setBalance(balance);
+        await preferences.setPricePlan(
+          (res.data['pricePlan'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+        );
 
         if (mounted) {
           // 刷新用户信息

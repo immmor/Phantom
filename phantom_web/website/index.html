@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phantom VPN</title>
+<style>
+  :root {
+    --bg1: #0a0e1a;
+    --bg2: #111a33;
+    --accent: #4f7cff;
+    --accent2: #00e5a0;
+    --danger: #ff5d7a;
+    --text: #eef2ff;
+    --text-dim: rgba(238, 242, 255, .55);
+    --card: rgba(255, 255, 255, .05);
+    --stroke: rgba(255, 255, 255, .09);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── 背景：动态渐变 + 光斑 ─────────────────────────── */
+  .bg {
+    position: fixed; inset: 0; z-index: -2;
+    background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 55%, #0d1526 100%);
+  }
+  .bg::before {
+    content: ""; position: absolute; inset: -20%;
+    background:
+      radial-gradient(42% 42% at 22% 18%, rgba(79,124,255,.22), transparent 60%),
+      radial-gradient(38% 38% at 82% 70%, rgba(0,229,160,.14), transparent 60%),
+      radial-gradient(30% 30% at 60% 8%, rgba(120,90,255,.18), transparent 60%);
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(0,0,0) scale(1); }
+    to   { transform: translate3d(3%, -4%, 0) scale(1.08); }
+  }
+
+  /* 网格纹理 */
+  .grid {
+    position: fixed; inset: 0; z-index: -1; opacity: .35;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(70% 70% at 50% 45%, #000 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(70% 70% at 50% 45%, #000 30%, transparent 100%);
+  }
+
+  .app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 20px 22px 26px;
+    gap: 14px;
+  }
+
+  /* ── 顶栏 ────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 4px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), #7a5cff);
+    box-shadow: 0 6px 18px rgba(79,124,255,.35);
+  }
+  .logo svg { width: 18px; height: 18px; }
+  .brand h1 { font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+  .brand small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--stroke);
+    background: var(--card); color: var(--text-dim);
+    display: grid; place-items: center; cursor: pointer;
+    transition: .25s;
+  }
+  .icon-btn:hover { color: var(--text); border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
+  .icon-btn svg { width: 17px; height: 17px; }
+
+  /* ── 状态徽标 ────────────────────────────────────── */
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-dim);
+    padding: 6px 14px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--stroke);
+    backdrop-filter: blur(12px);
+    margin: 2px auto 0;
+    transition: .4s;
+  }
+  .status-badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #8b93a8; transition: .4s;
+  }
+  .status-badge.connecting .dot { background: #ffb454; animation: blink .7s infinite alternate; }
+  .status-badge.connected { color: var(--accent2); border-color: rgba(0,229,160,.4); }
+  .status-badge.connected .dot { background: var(--accent2); box-shadow: 0 0 10px var(--accent2); }
+  @keyframes blink { from { opacity: .3; } to { opacity: 1; } }
+
+  /* ── 电源按钮 ────────────────────────────────────── */
+  .power-wrap {
+    flex: 1;
+    display: grid; place-items: center;
+    position: relative;
+    min-height: 240px;
+  }
+  .ring {
+    position: relative; width: 190px; height: 190px;
+    display: grid; place-items: center;
+  }
+  .ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring .track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 10; }
+  .ring .progress {
+    fill: none; stroke-width: 10; stroke-linecap: round;
+    stroke: url(#grad);
+    stroke-dasharray: 565; stroke-dashoffset: 565;
+    transition: stroke-dashoffset 1.2s cubic-bezier(.65,0,.35,1);
+  }
+  .ring.connected .progress { stroke-dashoffset: 0; }
+  .ring.connecting .progress {
+    stroke-dasharray: 240 325; stroke-dashoffset: 0;
+    animation: spin 1.1s linear infinite;
+    transition: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ring.connecting svg { animation: spin 1.1s linear infinite; }
+
+  .halo {
+    position: absolute; inset: -26px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(79,124,255,.28), transparent 65%);
+    opacity: 0; transition: opacity .6s;
+  }
+  .ring.connected .halo {
+    opacity: 1;
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(.92); opacity: .7; }
+    70%  { transform: scale(1.12); opacity: 0; }
+    100% { transform: scale(1.12); opacity: 0; }
+  }
+
+  .power-btn {
+    width: 118px; height: 118px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: rgba(255,255,255,.06);
+    backdrop-filter: blur(14px);
+    display: grid; place-items: center;
+    transition: .35s;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 30px rgba(0,0,0,.4);
+  }
+  .power-btn:hover { transform: scale(1.04); }
+  .power-btn:active { transform: scale(.96); }
+  .power-btn svg { width: 44px; height: 44px; fill: var(--text-dim); transition: .35s; }
+  .power-btn.connected {
+    background: linear-gradient(135deg, var(--accent), #7a5cff);
+    box-shadow: 0 0 34px rgba(79,124,255,.55), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .power-btn.connected svg { fill: #fff; filter: drop-shadow(0 0 8px rgba(255,255,255,.6)); }
+  .power-btn.connecting svg { fill: #ffb454; animation: breathe 1s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+  .power-label {
+    position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; font-weight: 600; letter-spacing: 2px;
+    color: var(--text-dim); transition: .4s; white-space: nowrap;
+  }
+  .ring.connected .power-label { color: var(--accent2); }
+
+  /* ── 位置卡片 ────────────────────────────────────── */
+  .loc-card {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); border: 1px solid var(--stroke);
+    border-radius: 16px; padding: 14px 16px;
+    backdrop-filter: blur(14px);
+    transition: .3s;
+  }
+  .loc-card:hover { border-color: rgba(255,255,255,.2); }
+  .loc-flag {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 22px;
+    background: rgba(255,255,255,.07);
+  }
+  .loc-info { flex: 1; min-width: 0; }
+  .loc-info .label { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
+  .loc-info .value { font-size: 15px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-btn {
+    border: 1px solid var(--stroke); background: rgba(255,255,255,.06);
+    color: var(--text); font-size: 12px; font-weight: 600;
+    padding: 8px 14px; border-radius: 10px; cursor: pointer; transition: .25s;
+  }
+  .loc-btn:hover { background: rgba(79,124,255,.2); border-color: rgba(79,124,255,.5); }
+  .loc-btn:disabled { opacity: .5; cursor: default; }
+
+  /* ── 指标卡片 ────────────────────────────────────── */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .metric {
+    background: var(--card); border: 1px solid var(--stroke);
+    border-radius: 14px; padding: 12px 8px; text-align: center;
+    backdrop-filter: blur(14px);
+    transition: .3s;
+  }
+  .metric:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.2); }
+  .metric .num {
+    font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, #fff, rgba(255,255,255,.65));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .metric .cap { font-size: 10px; color: var(--text-dim); margin-top: 3px; letter-spacing: 1px; }
+
+  /* ── 服务器列表 ──────────────────────────────────── */
+  .servers {
+    background: var(--card); border: 1px solid var(--stroke);
+    border-radius: 16px; padding: 6px; backdrop-filter: blur(14px);
+    max-height: 150px; overflow-y: auto;
+  }
+  .servers::-webkit-scrollbar { width: 4px; }
+  .servers::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+  .server-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 12px; cursor: pointer;
+    transition: .2s; border: 1px solid transparent;
+  }
+  .server-row:hover { background: rgba(255,255,255,.06); }
+  .server-row.active { background: rgba(79,124,255,.12); border-color: rgba(79,124,255,.35); }
+  .server-row .s-flag { font-size: 18px; width: 28px; text-align: center; }
+  .server-row .s-name { flex: 1; font-size: 13px; font-weight: 600; }
+  .server-row .s-ping {
+    font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+  .server-row .s-ping.good { color: var(--accent2); }
+  .server-row .s-ping.mid { color: #ffb454; }
+  .server-row .s-ping.bad { color: var(--danger); }
+
+  .fade-in { animation: fadeIn .5s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ── 设置弹窗 ────────────────────────────────────── */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(4, 8, 20, .6);
+    backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: 100%; max-width: 420px;
+    background: rgba(17, 26, 51, .92);
+    border: 1px solid var(--stroke);
+    border-radius: 18px; padding: 22px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+    animation: fadeIn .3s ease both;
+  }
+  .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .modal .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6; }
+  .modal input[type="text"] {
+    width: 100%; padding: 12px 14px;
+    border-radius: 12px; border: 1px solid var(--stroke);
+    background: rgba(255, 255, 255, .05); color: var(--text);
+    font-size: 13px; outline: none; transition: .25s;
+  }
+  .modal input[type="text"]:focus { border-color: rgba(79,124,255,.6); background: rgba(255,255,255,.08); }
+  .modal input[type="text"]::placeholder { color: rgba(238,242,255,.3); }
+  .modal .row { display: flex; gap: 10px; margin-top: 14px; }
+  .modal .btn {
+    flex: 1; padding: 11px; border-radius: 12px;
+    border: 1px solid var(--stroke); background: rgba(255,255,255,.06);
+    color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: .25s;
+  }
+  .modal .btn:hover { background: rgba(255,255,255,.12); }
+  .modal .btn.primary {
+    flex: 1.6;
+    background: linear-gradient(135deg, var(--accent), #7a5cff);
+    border: none; color: #fff;
+    box-shadow: 0 8px 22px rgba(79,124,255,.35);
+  }
+  .modal .btn.primary:hover { filter: brightness(1.1); }
+  .modal .btn:disabled { opacity: .5; cursor: default; }
+  .modal .tip {
+    margin-top: 12px; font-size: 11px; color: var(--text-dim); line-height: 1.6;
+  }
+  .modal .tip b { color: var(--accent2); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="grid"></div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f7cff"/>
+      <stop offset="100%" stop-color="#00e5a0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="white"><path d="M12 2 4 6v5c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V6l-8-4zm-1 14-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7z"/></svg>
+      </div>
+      <div>
+        <h1>Phantom VPN</h1>
+        <small>幽灵通道 · 安全上网</small>
+      </div>
+    </div>
+    <button class="icon-btn" id="settingsBtn" title="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <!-- 状态徽标 -->
+  <div class="status-badge" id="statusBadge">
+    <span class="dot"></span>
+    <span id="statusText">未连接</span>
+  </div>
+
+  <!-- 电源按钮 -->
+  <div class="power-wrap">
+    <div class="ring" id="ring">
+      <div class="halo"></div>
+      <svg viewBox="0 0 190 190">
+        <circle class="track" cx="95" cy="95" r="90"/>
+        <circle class="progress" cx="95" cy="95" r="90"/>
+      </svg>
+      <button class="power-btn" id="powerBtn">
+        <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5h5.8L11 22l8.5-11.5h-5.8L13 2z"/></svg>
+      </button>
+      <div class="power-label" id="powerLabel">点击连接</div>
+    </div>
+  </div>
+
+  <!-- 当前位置 -->
+  <div class="loc-card fade-in">
+    <div class="loc-flag" id="locFlag">🇸🇬</div>
+    <div class="loc-info">
+      <div class="label">虚拟位置</div>
+      <div class="value" id="locName">新加坡 · 樟宜节点</div>
+    </div>
+    <button class="loc-btn" id="nextBtn">切换节点</button>
+  </div>
+
+  <!-- 指标 -->
+  <div class="metrics fade-in" style="animation-delay:.1s">
+    <div class="metric">
+      <div class="num" id="mPing">--</div>
+      <div class="cap">延迟 / 毫秒</div>
+    </div>
+    <div class="metric">
+      <div class="num" id="mDown">0.0 <span style="font-size:11px">MB/s</span></div>
+      <div class="cap">下载速度</div>
+    </div>
+    <div class="metric">
+      <div class="num" id="mUp">0.0 <span style="font-size:11px">MB/s</span></div>
+      <div class="cap">上传速度</div>
+    </div>
+  </div>
+
+  <!-- 服务器列表 -->
+  <div class="servers fade-in" style="animation-delay:.2s" id="serverList"></div>
+
+</div>
+
+<!-- 设置弹窗：加载订阅 / 节点 -->
+<div class="modal-mask" id="settingsModal">
+  <div class="modal">
+    <h2>加载订阅 / 节点</h2>
+    <div class="sub">粘贴 Clash 订阅链接（http/https），或单个节点链接（vmess:// ss:// trojan:// 等）</div>
+    <input type="text" id="subUrlInput" placeholder="https://example.com/sub?token=..." autocomplete="off" spellcheck="false">
+    <div class="row">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalOk">保存并加载</button>
+    </div>
+    <div class="tip">保存后会自动写入内核配置并<span style="color:var(--accent2)">重启连接</span>。订阅将在内核侧定期刷新。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── 状态 ──────────────────────────────────────────────
+  const state = {
+    connected: false,
+    connecting: false,
+    current: null,   // 当前选中的代理名
+    proxies: [],     // 从内核获取的节点列表
+    lastUp: 0, lastDown: 0,   // 上次累计流量（bytes）
+    upRate: 0, downRate: 0,   // 计算出的速率（bytes/s）
+  };
+
+  const el = (id) => document.getElementById(id);
+  const $ring = el('ring');
+  const $btn = el('powerBtn');
+  const $badge = el('statusBadge');
+  const $statusText = el('statusText');
+  const $powerLabel = el('powerLabel');
+
+  let trafficTimer = null;
+  let lastTrafficTs = 0;
+
+  // ── 与壳通信 ─────────────────────────────────────────
+  function post(msg) {
+    if (window.PhantomShell && window.PhantomShell.postMessage) {
+      window.PhantomShell.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  // 壳 → 网页 回调（由 Flutter 注入调用）
+  window.PhantomBridge = {
+    emit: function (msg) {
+      handleFromShell(typeof msg === 'string' ? JSON.parse(msg) : msg);
+    }
+  };
+
+  // ── 根据代理名猜国旗（展示用） ───────────────────────
+  function guessFlag(name) {
+    const map = [
+      ['新加坡', '🇸🇬'], ['日本', '🇯🇵'], ['美国', '🇺🇸'],
+      ['香港', '🇭🇰'], ['台湾', '🇹🇼'], ['韩国', '🇰🇷'],
+      ['德国', '🇩🇪'], ['英国', '🇬🇧'], ['法国', '🇫🇷'],
+      ['俄罗斯', '🇷🇺'], ['印度', '🇮🇳'], ['加拿大', '🇨🇦'],
+      ['澳大利亚', '🇦🇺'], ['荷兰', '🇳🇱'], ['泰国', '🇹🇭'],
+    ];
+    for (const [kw, flag] of map) {
+      if (name.indexOf(kw) !== -1) return flag;
+    }
+    return '🌐';
+  }
+
+  // ── 渲染 ──────────────────────────────────────────────
+  function renderServerList() {
+    const list = el('serverList');
+    list.innerHTML = '';
+    if (state.proxies.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'server-row';
+      empty.innerHTML = '<span class="s-flag">🗂️</span><span class="s-name" style="color:var(--text-dim)">暂无节点，请先连接</span>';
+      list.appendChild(empty);
+      return;
+    }
+    state.proxies.forEach((name) => {
+      const row = document.createElement('div');
+      row.className = 'server-row' + (name === state.current ? ' active' : '');
+      row.innerHTML =
+        '<span class="s-flag">' + guessFlag(name) + '</span>' +
+        '<span class="s-name">' + name + '</span>' +
+        '<span class="s-ping"></span>';
+      row.addEventListener('click', () => selectServer(name));
+      list.appendChild(row);
+    });
+  }
+
+  function selectServer(name) {
+    if (!state.connected || state.connecting) return;
+    state.current = name;
+    el('locFlag').textContent = guessFlag(name);
+    el('locName').textContent = name;
+    renderServerList();
+    post({ type: 'change-proxy', group: 'GLOBAL', proxy: name });
+  }
+
+  el('nextBtn').addEventListener('click', () => {
+    if (state.proxies.length === 0) return;
+    const idx = state.proxies.indexOf(state.current);
+    selectServer(state.proxies[(idx + 1) % state.proxies.length]);
+  });
+
+  // ── 连接 / 断开（交给壳启动内核） ───────────────────
+  function connect() {
+    if (state.connecting) return;
+    state.connecting = true;
+    $btn.classList.add('connecting');
+    $ring.classList.add('connecting');
+    $badge.className = 'status-badge connecting';
+    $statusText.textContent = '连接中…';
+    $powerLabel.textContent = '启动内核';
+    post({ type: 'connect' });
+  }
+
+  function applyConnected() {
+    state.connecting = false;
+    state.connected = true;
+    $btn.classList.remove('connecting');
+    $btn.classList.add('connected');
+    $ring.classList.remove('connecting');
+    $ring.classList.add('connected');
+    $badge.className = 'status-badge connected';
+    $statusText.textContent = '已连接 · 流量加密';
+    $powerLabel.textContent = '点击断开';
+    startTraffic();
+    post({ type: 'get-proxies' });   // 拉取节点列表
+  }
+
+  function disconnect() {
+    state.connected = false;
+    state.connecting = false;
+    $btn.classList.remove('connected', 'connecting');
+    $ring.classList.remove('connected', 'connecting');
+    $badge.className = 'status-badge';
+    $statusText.textContent = '未连接';
+    $powerLabel.textContent = '点击连接';
+    el('mPing').textContent = '--';
+    stopTraffic();
+    post({ type: 'disconnect' });
+  }
+
+  function toggle() {
+    if (state.connecting) return;
+    state.connected ? disconnect() : connect();
+  }
+  $btn.addEventListener('click', toggle);
+
+  // ── 处理壳推送的消息 ─────────────────────────────────
+  function handleFromShell(msg) {
+    if (!msg || typeof msg !== 'object') return;
+
+    // 错误响应
+    if (msg.code && msg.code !== 0) {
+      state.connecting = false;
+      $btn.classList.remove('connecting');
+      $ring.classList.remove('connecting');
+      $badge.className = 'status-badge';
+      $statusText.textContent = '连接失败';
+      $powerLabel.textContent = '点击重试';
+      el('locName').textContent = msg.error || 'unknown error';
+      // 订阅加载失败时恢复弹窗按钮
+      const okBtn = el('modalOk');
+      okBtn.disabled = false;
+      okBtn.textContent = '保存并加载';
+      console.error('[Shell]', msg);
+      return;
+    }
+
+    switch (msg.type) {
+      case 'connected':
+        applyConnected();
+        break;
+
+      case 'disconnected':
+        state.connected = false;
+        state.connecting = false;
+        $btn.classList.remove('connected', 'connecting');
+        $ring.classList.remove('connected', 'connecting');
+        $badge.className = 'status-badge';
+        $statusText.textContent = '未连接';
+        $powerLabel.textContent = '点击连接';
+        el('mPing').textContent = '--';
+        stopTraffic();
+        break;
+
+      case 'proxies': {
+        const all = (msg.data && msg.data.all) || [];
+        state.proxies = all.filter((n) =>
+          n !== 'GLOBAL' && n !== 'DIRECT' && n !== 'REJECT'
+        );
+        if (state.proxies.length > 0 && !state.current) {
+          state.current = state.proxies[0];
+          el('locFlag').textContent = guessFlag(state.current);
+          el('locName').textContent = state.current;
+        }
+        renderServerList();
+        break;
+      }
+
+      case 'config-loaded':
+        // 订阅已写入 config.yaml：
+        // 已连接 → 壳已自动重启内核并加载新订阅；
+        // 未连接 → 自动发起连接让订阅生效
+        closeSettings();
+        const okBtn = el('modalOk');
+        okBtn.disabled = false;
+        okBtn.textContent = '保存并加载';
+        if (!state.connected) {
+          el('locName').textContent = '订阅已保存，正在启动内核…';
+          connect();
+        } else {
+          el('locName').textContent = '订阅已保存，正在加载节点…';
+          post({ type: 'get-proxies' });
+        }
+        break;
+
+      case 'traffic': {
+        const now = Date.now();
+        if (lastTrafficTs > 0) {
+          const dt = (now - lastTrafficTs) / 1000;
+          if (dt > 0) {
+            state.upRate = Math.max(0, (msg.up - state.lastUp) / dt);
+            state.downRate = Math.max(0, (msg.down - state.lastDown) / dt);
+          }
+        }
+        state.lastUp = msg.up; state.lastDown = msg.down;
+        lastTrafficTs = now;
+        break;
+      }
+
+      case 'status':
+        if (msg.status === 'connected') {
+          applyConnected();
+        } else if (msg.status === 'connecting') {
+          state.connecting = true;
+          $btn.classList.add('connecting');
+          $ring.classList.add('connecting');
+          $badge.className = 'status-badge connecting';
+          $statusText.textContent = '连接中…';
+          $powerLabel.textContent = '启动内核';
+        } else if (msg.status === 'error' || msg.status === 'idle') {
+          state.connecting = false;
+          $btn.classList.remove('connecting');
+          $ring.classList.remove('connecting');
+          $badge.className = 'status-badge';
+          $statusText.textContent = '未连接';
+          $powerLabel.textContent = '点击连接';
+          if (msg.status === 'error' && msg.error) {
+            el('locName').textContent = msg.error;
+          }
+        }
+        break;
+
+      case 'event':
+        // 事件（log/loaded 等）目前仅记录；delay 事件可更新延迟
+        if (msg.eventType === 'delay' && msg.data) {
+          const d = msg.data;
+          if (d && d.delay !== undefined) {
+            el('mPing').textContent = d.delay;
+          }
+        }
+        break;
+    }
+  }
+
+  // ── 真实流量轮询 ─────────────────────────────────────
+  function startTraffic() {
+    clearInterval(trafficTimer);
+    state.lastUp = 0; state.lastDown = 0; lastTrafficTs = 0;
+    trafficTimer = setInterval(() => {
+      post({ type: 'get-traffic' });
+      // 用累计流量差值换算速率
+      el('mDown').innerHTML = fmt(state.downRate);
+      el('mUp').innerHTML = fmt(state.upRate);
+    }, 1000);
+  }
+  function stopTraffic() {
+    clearInterval(trafficTimer);
+    trafficTimer = null;
+    state.upRate = 0; state.downRate = 0;
+    el('mDown').innerHTML = '0.0 <span style="font-size:11px">MB/s</span>';
+    el('mUp').innerHTML = '0.0 <span style="font-size:11px">MB/s</span>';
+  }
+  function fmt(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0) return '0.0 <span style="font-size:11px">MB/s</span>';
+    const mb = bytesPerSec / (1024 * 1024);
+    return mb.toFixed(1) + ' <span style="font-size:11px">MB/s</span>';
+  }
+
+  // ── 设置弹窗：加载订阅 / 节点 ───────────────────────
+  const $modal = el('settingsModal');
+  const $subUrl = el('subUrlInput');
+
+  function openSettings() {
+    $modal.classList.add('show');
+    $subUrl.value = '';
+    $subUrl.focus();
+  }
+  function closeSettings() {
+    $modal.classList.remove('show');
+  }
+
+  el('settingsBtn').addEventListener('click', openSettings);
+  el('modalCancel').addEventListener('click', closeSettings);
+  $modal.addEventListener('click', (e) => {
+    if (e.target === $modal) closeSettings();
+  });
+  $subUrl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') el('modalOk').click();
+    if (e.key === 'Escape') closeSettings();
+  });
+
+  el('modalOk').addEventListener('click', () => {
+    const url = $subUrl.value.trim();
+    if (!url) {
+      $subUrl.style.borderColor = 'var(--danger)';
+      setTimeout(() => { $subUrl.style.borderColor = ''; }, 1200);
+      return;
+    }
+    const okBtn = el('modalOk');
+    okBtn.disabled = true;
+    okBtn.textContent = '加载中…';
+    el('locName').textContent = '正在应用订阅…';
+    post({ type: 'load-config', url: url });
+    // 等待壳返回 config-loaded 后再关闭
+  });
+
+  // ── 初始化 ────────────────────────────────────────────
+  renderServerList();
+  post({ type: 'get-proxies' });  // 尝试预拉节点列表（未连接时内核无数据，忽略即可）
+})();
+</script>
+</body>
+</html>

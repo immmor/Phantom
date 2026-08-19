@@ -70,6 +70,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         await preferences.setVToken(vToken);
         await preferences.setVExpireDate(vExpireDate);
         await preferences.setBalance(balance);
+        await preferences.setPricePlan(
+          (res.data['pricePlan'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+        );
 
         if (mounted) {
           runApp(

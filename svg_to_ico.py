@@ -13,7 +13,8 @@ from pathlib import Path
 
 from PIL import Image
 
-SVG_PATH = Path("assets/images/phantom.svg")
+SVG_PATH = Path("assets/images/phantom.svg")          # 托盘/剪影图标（无背景）
+ICON_SVG_PATH = Path("assets/images/phantom_icon.svg")  # APP 图标（黑底）
 ICO_PATH = Path("windows/runner/resources/app_icon.ico")
 STATUS_DIR = Path("assets/images/icon")
 ROOT_ICON_PNG = Path("assets/images/icon.png")   # Linux 打包用（deb/appimage/rpm）
@@ -158,24 +159,34 @@ def write_status_icons(source_png: Path) -> None:
 
 
 def main() -> None:
-    if not SVG_PATH.exists():
-        print(f"SVG not found: {SVG_PATH}")
-        sys.exit(1)
+    for svg in (SVG_PATH, ICON_SVG_PATH):
+        if not svg.exists():
+            print(f"SVG not found: {svg}")
+            sys.exit(1)
 
     with tempfile.TemporaryDirectory() as tmp:
-        png = Path(tmp) / "phantom_1024.png"
-
-        if render_with_resvg(SVG_PATH, png):
-            print("Rendered with resvg")
-        elif render_with_qlmanage(SVG_PATH, png):
-            print("Rendered with qlmanage (Quick Look fallback)")
+        # APP 图标（黑底）：Windows app_icon.ico + 根目录通用图标
+        app_png = Path(tmp) / "app_icon_1024.png"
+        if render_with_resvg(ICON_SVG_PATH, app_png):
+            print("Rendered app icon with resvg")
+        elif render_with_qlmanage(ICON_SVG_PATH, app_png):
+            print("Rendered app icon with qlmanage (Quick Look fallback)")
         else:
             print("No SVG renderer available. Install resvg: brew install resvg")
             sys.exit(1)
+        write_ico(app_png, ICO_PATH, APP_ICON_SIZES)
+        write_root_icons(app_png)
 
-        write_ico(png, ICO_PATH, APP_ICON_SIZES)
-        write_status_icons(png)
-        write_root_icons(png)
+        # 托盘图标（无背景剪影，保持原样）
+        tray_png = Path(tmp) / "tray_1024.png"
+        if render_with_resvg(SVG_PATH, tray_png):
+            print("Rendered tray icon with resvg")
+        elif render_with_qlmanage(SVG_PATH, tray_png):
+            print("Rendered tray icon with qlmanage (Quick Look fallback)")
+        else:
+            print("No SVG renderer available. Install resvg: brew install resvg")
+            sys.exit(1)
+        write_status_icons(tray_png)
 
 
 if __name__ == "__main__":

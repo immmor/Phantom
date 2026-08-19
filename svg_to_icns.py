@@ -1,4 +1,4 @@
-"""使用 resvg 将 phantom.svg 渲染为 macOS AppIcon.appiconset（Dock 图标）。
+"""使用 resvg 将 phantom_icon.svg 渲染为 macOS AppIcon.appiconset（Dock 图标）。
 
 依赖:
   - resvg (brew install resvg)   # 首选渲染器
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 
-SVG_PATH = Path("assets/images/phantom.svg")
+SVG_PATH = Path("assets/images/phantom_icon.svg")
 OUTPUT_DIR = Path("macos/Runner/Assets.xcassets/AppIcon.appiconset")
 
 # 与 Contents.json 严格对应

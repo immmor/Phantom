@@ -165,6 +165,28 @@ class Preferences {
     }
   }
 
+  Future<Map<String, dynamic>?> getPricePlan() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    final str = preferences?.getString('pricePlan');
+    if (str == null) {
+      return null;
+    }
+    try {
+      return json.decode(str) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setPricePlan(Map<String, dynamic>? pricePlan) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (pricePlan != null) {
+      await preferences?.setString('pricePlan', json.encode(pricePlan));
+    } else {
+      await preferences?.remove('pricePlan');
+    }
+  }
+
   Future<double?> getCachedTotalUpTraffic() async {
     final preferences = await sharedPreferencesCompleter.future;
     return preferences?.getDouble('cachedTotalUpTraffic');

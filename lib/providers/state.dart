@@ -524,25 +524,45 @@ ColorScheme genColorScheme(
       (state) => VM2(state.primaryColor, state.schemeVariant),
     ),
   );
-  if (color == null && (ignoreConfig == true || vm2.a == null)) {
-    // if (globalState.corePalette != null) {
-    //   return globalState.corePalette!.toColorScheme(brightness: brightness);
-    // }
-    return ColorScheme.fromSeed(
-      seedColor:
-          globalState.corePalette
-              ?.toColorScheme(brightness: brightness)
-              .primary ??
-          globalState.accentColor,
-      brightness: brightness,
-      dynamicSchemeVariant: vm2.b,
+  final scheme = (color == null && (ignoreConfig == true || vm2.a == null))
+      ? ColorScheme.fromSeed(
+          seedColor:
+              globalState.corePalette
+                  ?.toColorScheme(brightness: brightness)
+                  .primary ??
+              globalState.accentColor,
+          brightness: brightness,
+          dynamicSchemeVariant: vm2.b,
+        )
+      : ColorScheme.fromSeed(
+          seedColor: color ?? Color(vm2.a!),
+          brightness: brightness,
+          dynamicSchemeVariant: vm2.b,
+        );
+  // 连接成功（青色主题）时，让整个软件背景呈现明显的青色
+  if (color == null && vm2.a == connectedPrimaryColor) {
+    if (brightness == Brightness.dark) {
+      return scheme.copyWith(
+        surface: const Color(0xFF081318),
+        background: const Color(0xFF081318),
+        surfaceContainerLowest: const Color(0xFF040D11),
+        surfaceContainerLow: const Color(0xFF0C181E),
+        surfaceContainer: const Color(0xFF0F1C22),
+        surfaceContainerHigh: const Color(0xFF14232A),
+        surfaceContainerHighest: const Color(0xFF192A32),
+      );
+    }
+    return scheme.copyWith(
+      surface: const Color(0xFFD6EDF3),
+      background: const Color(0xFFD6EDF3),
+      surfaceContainerLowest: const Color(0xFFF4FBFD),
+      surfaceContainerLow: const Color(0xFFCDE5EC),
+      surfaceContainer: const Color(0xFFC3DDE5),
+      surfaceContainerHigh: const Color(0xFFB9D4DC),
+      surfaceContainerHighest: const Color(0xFFAECAD3),
     );
   }
-  return ColorScheme.fromSeed(
-    seedColor: color ?? Color(vm2.a!),
-    brightness: brightness,
-    dynamicSchemeVariant: vm2.b,
-  );
+  return scheme;
 }
 
 @riverpod
