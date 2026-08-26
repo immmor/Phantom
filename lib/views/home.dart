@@ -267,6 +267,8 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
         // Phantom 主题青色（与 phantom.svg 渐变一致）
         const cyan = Color(0xFF00F7FF);
         const cyanDeep = Color(0xFF00BDE8);
+        // 已连接状态使用的暗青色（避免霓虹青过于刺眼）
+        const cyanDim = Color(0xFF00838F);
 
         return GestureDetector(
           onTap: isConnecting ? null : _handleConnection,
@@ -350,43 +352,19 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
                 ),
               ),
               const SizedBox(height: 22),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isStart ? cyan : Colors.grey.shade500,
-                      boxShadow: isStart
-                          ? [
-                              BoxShadow(
-                                color: cyan.withValues(alpha: 0.8),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : null,
-                    ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: Text(
+                  isConnecting
+                      ? '连接中…'
+                      : (isStart ? '已连接' : '点击连接'),
+                  key: ValueKey('$isStart-$isConnecting'),
+                  style: TextStyle(
+                    color: isStart ? cyanDim : Colors.grey.shade400,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 8),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: Text(
-                      isConnecting
-                          ? '连接中…'
-                          : (isStart ? '已连接' : '点击连接'),
-                      key: ValueKey('$isStart-$isConnecting'),
-                      style: TextStyle(
-                        color: isStart ? cyan : Colors.grey.shade400,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),

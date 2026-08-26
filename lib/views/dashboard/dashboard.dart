@@ -181,15 +181,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                         iconSize: 20,
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.greenAccent,
-                          foregroundColor: switch (Theme.brightnessOf(
-                            context,
-                          )) {
-                            Brightness.light =>
-                              context.colorScheme.onSurfaceVariant,
-                            Brightness.dark =>
-                              context.colorScheme.onPrimaryFixedVariant,
-                          },
+                          backgroundColor: Colors.green.shade900,
+                          foregroundColor: Colors.white,
                         ),
                         onPressed: _handleConnection,
                         icon: Icon(Icons.check, fontWeight: FontWeight.w900),
@@ -202,19 +195,13 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                           padding: EdgeInsets.symmetric(horizontal: 12),
                           backgroundColor: switch (coreStatus) {
                             CoreStatus.connecting => null,
-                            CoreStatus.connected => Colors.greenAccent,
+                            CoreStatus.connected => Colors.green.shade900,
                             CoreStatus.disconnected =>
                               context.colorScheme.error,
                           },
                           foregroundColor: switch (coreStatus) {
                             CoreStatus.connecting => null,
-                            CoreStatus.connected => switch (Theme.brightnessOf(
-                              context,
-                            )) {
-                              Brightness.light =>
-                                context.colorScheme.onSurfaceVariant,
-                              Brightness.dark => null,
-                            },
+                            CoreStatus.connected => Colors.white,
                             CoreStatus.disconnected =>
                               context.colorScheme.onError,
                           },
