@@ -3,7 +3,7 @@ description: A multi-platform proxy client based on ClashMeta, simple and easy t
 publish_to: 'none'
 version: 0.8.92+2026020201
 environment:
-  sdk: '>=3.8.0 <4.0.0'
+  sdk: '>=3.8.0 <4.0.0' 
 
 dependencies:
   flutter:
