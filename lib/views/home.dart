@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -16,9 +18,14 @@ class PhantomHomeView extends ConsumerStatefulWidget {
 }
 
 class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _spinController;
+  late Animation<double> _spinAnimation;
+  late AnimationController _enterController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -30,14 +37,37 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    _spinController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+    _spinAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_spinController);
+    _enterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.12),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOutCubic));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _enterController, curve: Curves.easeOut),
+    );
+    _enterController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(cachedTrafficProvider.notifier).init();
+      // 补全 VIP 周期起始时间后刷新用户信息，使进度条按真实周期显示
+      syncVipStartDateFromLocal().then((_) {
+        if (mounted) ref.invalidate(phantomHomeProvider);
+      });
     });
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _spinController.dispose();
+    _enterController.dispose();
     super.dispose();
   }
 
@@ -69,35 +99,62 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
 
   @override
   Widget build(BuildContext context) {
+    final isRunning = ref.watch(isStartProvider);
+    final glowColor =
+        isRunning ? Color(connectedPrimaryColor) : context.colorScheme.primary;
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          color: context.colorScheme.surface,
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildNoticeMarquee(),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildProxySelector(),
-                        const SizedBox(height: 24),
-                        _buildConnectionButton(),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: context.colorScheme.surface,
             ),
           ),
-        ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.6),
+                  radius: 1.1,
+                  colors: [
+                    glowColor.withOpacity(0.16),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildNoticeMarquee(),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildProxySelector(),
+                              const SizedBox(height: 24),
+                              _buildConnectionButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -282,6 +339,17 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    // 旋转光晕环
+                    AnimatedBuilder(
+                      animation: _spinAnimation,
+                      builder: (context, _) => CustomPaint(
+                        size: const Size(190, 190),
+                        painter: _GlowRingPainter(
+                          _spinAnimation.value,
+                          isStart ? cyan : cyanDeep,
+                        ),
+                      ),
+                    ),
                     // 外圈静态光环
                     Container(
                       width: 190,
@@ -372,4 +440,39 @@ class _PhantomHomeViewState extends ConsumerState<PhantomHomeView>
       },
     );
   }
+}
+
+/// 旋转光晕环：用 SweepGradient 画一段高光弧，随动画旋转，营造霓虹流光质感。
+class _GlowRingPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  const _GlowRingPainter(this.progress, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: 2 * pi,
+        colors: [
+          color.withOpacity(0),
+          color.withOpacity(0.9),
+          color.withOpacity(0),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+        transform: GradientRotation(progress * 2 * pi),
+      ).createShader(rect);
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowRingPainter old) =>
+      old.progress != progress || old.color != color;
 }

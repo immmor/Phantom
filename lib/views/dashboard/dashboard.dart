@@ -29,6 +29,11 @@ final _userInfoProvider = FutureProvider<(String?, double?)>((ref) async {
 Future<String?> _renewVip(int duration) async {
   final username = await preferences.getUsername();
   if (username == null) return '用户未登录';
+  // 记录续费前的 VIP 状态，用于区分「叠加续费」与「新开 / 过期重开」
+  final oldExpireStr = await preferences.getVExpireDate();
+  final oldExpire =
+      oldExpireStr == null ? null : DateTime.tryParse(oldExpireStr);
+  final wasVip = oldExpire != null && oldExpire.isAfter(DateTime.now());
   try {
     final dio = Dio()
       ..httpClientAdapter = IOHttpClientAdapter(
@@ -49,6 +54,10 @@ Future<String?> _renewVip(int duration) async {
       await preferences.setBalance((data['balance'] as num?)?.toDouble());
       await preferences.setVExpireDate(data['v_expire_date']);
       await preferences.setVToken(data['v_token']);
+      await markVipRenewed(
+        DateTime.tryParse(data['v_expire_date']?.toString() ?? ''),
+        wasVip,
+      );
       return null;
     }
     return res.data['msg'] ?? '续费失败';

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/p_token.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/database.dart';
@@ -60,7 +61,17 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
       );
 
       if (res.data['success'] == true) {
-        final userInfo = res.data['userInfo'];
+        final pToken = res.data['p_token'] as String?;
+        if (pToken == null) {
+          _error('登录响应异常：缺少 p_token');
+          return;
+        }
+        final payload = decodePToken(pToken);
+        if (payload == null) {
+          _error('登录响应异常：p_token 解析失败');
+          return;
+        }
+        final userInfo = payload['u'] as Map<String, dynamic>?;
         final username = userInfo?['username'] as String?;
         final vToken = userInfo?['v_token'] as String?;
         final vExpireDate = userInfo?['v_expire_date'] as String?;
@@ -69,9 +80,12 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
         await preferences.setUsername(username);
         await preferences.setVToken(vToken);
         await preferences.setVExpireDate(vExpireDate);
+        await syncVipStartDate(
+          vExpireDate == null ? null : DateTime.tryParse(vExpireDate),
+        );
         await preferences.setBalance(balance);
         await preferences.setPricePlan(
-          (res.data['pricePlan'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+          (payload['p'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
         );
 
         if (mounted) {

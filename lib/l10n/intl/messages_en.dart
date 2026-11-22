@@ -744,6 +744,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
     "selectedCountTitle": m12,
     "mine": MessageLookupByLibrary.simpleMessage("My"),
+    "mall": MessageLookupByLibrary.simpleMessage("Mall"),
     "settings": MessageLookupByLibrary.simpleMessage("Settings"),
     "show": MessageLookupByLibrary.simpleMessage("Show"),
     "shrink": MessageLookupByLibrary.simpleMessage("Shrink"),

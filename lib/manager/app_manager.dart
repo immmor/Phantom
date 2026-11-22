@@ -144,7 +144,16 @@ class AppSidebarContainer extends ConsumerWidget {
     required BuildContext context,
     required Widget child,
   }) {
-    return Material(color: context.colorScheme.surfaceContainer, child: child);
+    return GlassSurface(
+      tint: context.colorScheme.surfaceContainer,
+      tintOpacity: 0.7,
+      blur: 18,
+      borderRadius: BorderRadius.zero,
+      borderOpacity: 0.15,
+      boxShadow: const [],
+      clip: false,
+      child: child,
+    );
     // if (!system.isMacOS) {
     //   return Material(
     //     color: context.colorScheme.surfaceContainer,
@@ -177,6 +186,7 @@ class AppSidebarContainer extends ConsumerWidget {
       PageLabel.resources => AppLocalizations.current.resources,
       PageLabel.connections => AppLocalizations.current.connections,
       PageLabel.mine => AppLocalizations.current.mine,
+      PageLabel.mall => '商城',
     };
   }
 

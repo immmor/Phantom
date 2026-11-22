@@ -21,18 +21,19 @@ class SettingsView extends ConsumerWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 16),
-          child: ListView(
+          child: StaggeredList(
             padding: const EdgeInsets.only(bottom: 20),
+            gap: 8,
+            duration: const Duration(milliseconds: 500),
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: UserCardWidget(),
               ),
               const _LocaleItem(),
-              const _ThemeItem(),
               if (system.isAndroid) const _AccessItem(),
-              const _ClearCacheItem(),
               const _InfoItem(),
+              const _ClearCacheItem(),
               const _LoginItem(),
             ],
           ),
@@ -285,6 +286,7 @@ class _LoginItem extends ConsumerWidget {
       await preferences.setUsername(null);
       await preferences.setVToken(null);
       await preferences.setVExpireDate(null);
+      await preferences.setVipStartDate(null);
       await preferences.setBalance(null);
       ref.invalidate(phantomHomeProvider);
     }

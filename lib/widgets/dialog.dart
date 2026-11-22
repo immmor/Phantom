@@ -29,7 +29,16 @@ class CommonDialog extends ConsumerWidget {
       title: Text(title),
       actions: actions,
       contentPadding: padding,
-      backgroundColor: backgroundColor,
+      backgroundColor: backgroundColor ??
+          Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.92),
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.18),
+          width: 1,
+        ),
+      ),
       content: Container(
         constraints: BoxConstraints(
           maxHeight: min(
@@ -65,7 +74,7 @@ class CommonModal extends ConsumerWidget {
         width: size.width * 0.85,
         height: size.height * 0.85,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
         ),
         clipBehavior: Clip.antiAlias,
         child: child,

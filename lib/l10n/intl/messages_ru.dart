@@ -786,6 +786,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
     "selectedCountTitle": m12,
     "mine": MessageLookupByLibrary.simpleMessage("Мои"),
+    "mall": MessageLookupByLibrary.simpleMessage("Магазин"),
     "settings": MessageLookupByLibrary.simpleMessage("Настройки"),
     "show": MessageLookupByLibrary.simpleMessage("Показать"),
     "shrink": MessageLookupByLibrary.simpleMessage("Сжать"),

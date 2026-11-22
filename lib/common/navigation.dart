@@ -33,20 +33,26 @@ class Navigation {
         modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
       ),
       NavigationItem(
+        icon: const Icon(Icons.shopping_bag_outlined),
+        label: PageLabel.mall,
+        builder: (_) => const MallView(key: GlobalObjectKey(PageLabel.mall)),
+        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
+      ),
+      NavigationItem(
         icon: Icon(Icons.folder),
         label: PageLabel.profiles,
         builder: (_) =>
             const ProfilesView(key: GlobalObjectKey(PageLabel.profiles)),
         modes: [],
       ),
-      NavigationItem(
-        icon: Icon(Icons.view_timeline),
-        label: PageLabel.requests,
-        builder: (_) =>
-            const RequestsView(key: GlobalObjectKey(PageLabel.requests)),
-        description: 'requestsDesc',
-        modes: [NavigationItemMode.desktop, NavigationItemMode.more],
-      ),
+      // NavigationItem(
+      //   icon: Icon(Icons.view_timeline),
+      //   label: PageLabel.requests,
+      //   builder: (_) =>
+      //       const RequestsView(key: GlobalObjectKey(PageLabel.requests)),
+      //   description: 'requestsDesc',
+      //   modes: [NavigationItemMode.desktop, NavigationItemMode.more],
+      // ),
       NavigationItem(
         icon: Icon(Icons.ballot),
         label: PageLabel.connections,

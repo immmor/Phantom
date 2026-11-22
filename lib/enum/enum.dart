@@ -332,6 +332,7 @@ enum PageLabel {
   resources,
   connections,
   mine,
+  mall,
 }
 
 enum RuleAction {

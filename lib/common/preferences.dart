@@ -151,6 +151,22 @@ class Preferences {
     }
   }
 
+  /// VIP 本轮权益的起始时间（首次开通 / 过期后重新开通的时刻）。
+  /// 已购总时长 = 到期时间 − 该起始时间（多次叠加续费会自然累加）
+  Future<String?> getVipStartDate() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getString('vipStartDate');
+  }
+
+  Future<void> setVipStartDate(String? date) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (date != null) {
+      await preferences?.setString('vipStartDate', date);
+    } else {
+      await preferences?.remove('vipStartDate');
+    }
+  }
+
   Future<double?> getBalance() async {
     final preferences = await sharedPreferencesCompleter.future;
     return preferences?.getDouble('balance');

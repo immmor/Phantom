@@ -499,6 +499,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selected": MessageLookupByLibrary.simpleMessage("已选择"),
     "selectedCountTitle": m12,
     "mine": MessageLookupByLibrary.simpleMessage("我的"),
+    "mall": MessageLookupByLibrary.simpleMessage("商城"),
     "settings": MessageLookupByLibrary.simpleMessage("设置"),
     "show": MessageLookupByLibrary.simpleMessage("显示"),
     "shrink": MessageLookupByLibrary.simpleMessage("紧凑"),

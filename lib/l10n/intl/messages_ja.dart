@@ -566,6 +566,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
     "selectedCountTitle": m12,
     "mine": MessageLookupByLibrary.simpleMessage("マイ"),
+    "mall": MessageLookupByLibrary.simpleMessage("ショップ"),
     "settings": MessageLookupByLibrary.simpleMessage("設定"),
     "show": MessageLookupByLibrary.simpleMessage("表示"),
     "shrink": MessageLookupByLibrary.simpleMessage("縮小"),

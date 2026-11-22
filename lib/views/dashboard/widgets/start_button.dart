@@ -94,27 +94,67 @@ class _StartButtonState extends ConsumerState<StartButton>
                   )
                   .width +
               16;
+          final accent = Color(connectedPrimaryColor);
+          final gradient = isStart
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [accent, accent.darken(15)],
+                )
+              : LinearGradient(
+                  colors: [
+                    context.colorScheme.primary,
+                    context.colorScheme.primaryContainer,
+                  ],
+                );
+          final contentColor = isStart
+              ? Colors.white
+              : context.colorScheme.onPrimaryContainer;
           return FloatingActionButton(
             clipBehavior: Clip.antiAlias,
             materialTapTargetSize: MaterialTapTargetSize.padded,
             heroTag: null,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            hoverElevation: 0,
+            focusElevation: 0,
+            highlightElevation: 0,
             onPressed: () {
               handleSwitchStart();
             },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  height: 56,
-                  width: 56,
-                  alignment: Alignment.center,
-                  child: AnimatedIcon(
-                    icon: AnimatedIcons.play_pause,
-                    progress: _animation,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: isStart
+                    ? [
+                        BoxShadow(
+                          color: accent.withOpacity(0.5),
+                          blurRadius: 28,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 56,
+                    width: 56,
+                    alignment: Alignment.center,
+                    child: AnimatedIcon(
+                      icon: AnimatedIcons.play_pause,
+                      progress: _animation,
+                      color: contentColor,
+                    ),
                   ),
-                ),
-                SizedBox(width: textWidth * _animation.value, child: child!),
-              ],
+                  SizedBox(
+                    width: textWidth * _animation.value,
+                    child: child,
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -126,8 +166,11 @@ class _StartButtonState extends ConsumerState<StartButton>
               text,
               maxLines: 1,
               overflow: TextOverflow.visible,
-              style: Theme.of(context).textTheme.titleMedium?.toSoftBold
-                  .copyWith(color: context.colorScheme.onPrimaryContainer),
+              style: Theme.of(context).textTheme.titleMedium?.toSoftBold.copyWith(
+                    color: isStart
+                        ? Colors.white
+                        : context.colorScheme.onPrimaryContainer,
+                  ),
             );
           },
         ),

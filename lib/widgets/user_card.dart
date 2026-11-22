@@ -12,6 +12,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 final checkInBonusTraffic = ValueNotifier<double>(0.0);
 
+/// 高级感配色：VIP 采用香槟金，普通用户采用中性灰，整体在浅色主题下保持克制。
+const Color _goldLight = Color(0xFFFDF6E3);
+const Color _goldMid = Color(0xFFF8E8C8);
+const Color _gold = Color(0xFFD4AF37);
+const Color _goldDark = Color(0xFFB8860B);
+
 final phantomHomeProvider = FutureProvider<PhantomUserInfo?>((ref) async {
   final username = await preferences.getUsername();
   if (username == null) return null;
@@ -24,10 +30,13 @@ final phantomHomeProvider = FutureProvider<PhantomUserInfo?>((ref) async {
     expireDate = DateTime.tryParse(expireDateStr);
   }
 
+  final startDate = await syncVipStartDate(expireDate);
+
   return PhantomUserInfo(
     username: username,
     balance: balance,
     expireDate: expireDate,
+    startDate: startDate,
   );
 });
 
@@ -74,9 +83,48 @@ Future<double> getVipPrice(int duration) async {
   return (pricePlan?['monthly_discount'] as num?)?.toDouble() ?? 30.0;
 }
 
+/// 同步 VIP 权益起始时间（登录 / App 启动时调用）。
+/// 本地无记录时（旧版本升级、跨设备登录）以当前时间作为起点并持久化，
+/// 之后到期时间因叠加续费而后移，已购总时长自然累加。
+Future<DateTime?> syncVipStartDate(DateTime? expireDate) async {
+  if (expireDate == null) {
+    await preferences.setVipStartDate(null);
+    return null;
+  }
+  final savedStr = await preferences.getVipStartDate();
+  final saved = savedStr == null ? null : DateTime.tryParse(savedStr);
+  if (saved != null && saved.isBefore(expireDate)) return saved;
+  // 无记录或记录异常（不早于到期时间），以当前时间作为起点
+  final now = DateTime.now();
+  await preferences.setVipStartDate(now.toIso8601String());
+  return now;
+}
+
+/// 续费成功后维护权益起始时间：
+/// 叠加续费（原 VIP 仍有效）时保持起点不变，已购总时长随到期时间延长而累加；
+/// 首次开通或过期后重新开通时，重置起点为当前时间。
+Future<void> markVipRenewed(DateTime? newExpireDate, bool wasVip) async {
+  if (newExpireDate == null) return;
+  if (wasVip) return;
+  await preferences.setVipStartDate(DateTime.now().toIso8601String());
+}
+
+/// 从本地缓存读取到期时间并同步权益起始时间
+Future<void> syncVipStartDateFromLocal() async {
+  final expireDateStr = await preferences.getVExpireDate();
+  await syncVipStartDate(
+    expireDateStr == null ? null : DateTime.tryParse(expireDateStr),
+  );
+}
+
 Future<String?> renewVip(int duration) async {
   final username = await preferences.getUsername();
   if (username == null) return '用户未登录';
+  // 记录续费前的 VIP 状态，用于区分「叠加续费」与「新开 / 过期重开」
+  final oldExpireStr = await preferences.getVExpireDate();
+  final oldExpire =
+      oldExpireStr == null ? null : DateTime.tryParse(oldExpireStr);
+  final wasVip = oldExpire != null && oldExpire.isAfter(DateTime.now());
   try {
     final dio = Dio()
       ..httpClientAdapter = IOHttpClientAdapter(
@@ -97,6 +145,10 @@ Future<String?> renewVip(int duration) async {
       await preferences.setBalance((data['balance'] as num?)?.toDouble());
       await preferences.setVExpireDate(data['v_expire_date']);
       await preferences.setVToken(data['v_token']);
+      await markVipRenewed(
+        DateTime.tryParse(data['v_expire_date']?.toString() ?? ''),
+        wasVip,
+      );
       return null;
     }
     return res.data['msg'] ?? '续费失败';
@@ -135,7 +187,7 @@ Future<void> refreshUserBalance(WidgetRef ref) async {
 
 /// 打开充值页面：Android / iOS / macOS 使用应用内 WebView，其余平台回退外部浏览器
 void openPayPage(BuildContext context) {
-  const payUrl = 'https://funbua.uk/pay';
+  const payUrl = 'https://funbua.uk/vpay';
   if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -242,11 +294,13 @@ class PhantomUserInfo {
   final String username;
   final double? balance;
   final DateTime? expireDate;
+  final DateTime? startDate;
 
   PhantomUserInfo({
     required this.username,
     this.balance,
     this.expireDate,
+    this.startDate,
   });
 
   bool get isVip => expireDate != null && expireDate!.isAfter(DateTime.now());
@@ -259,13 +313,21 @@ class PhantomUserInfo {
     return diff.isNegative ? Duration.zero : diff;
   }
 
-  int get totalDays => 30;
+  /// 已购 VIP 总时长 = 到期时间 − 权益起始时间。
+  /// 多次叠加续费时，到期时间后移，总时长自然累加。
+  Duration get totalDuration {
+    final start = startDate;
+    final expire = expireDate;
+    if (start == null || expire == null) return remainingDuration;
+    final diff = expire.difference(start);
+    return diff.isNegative ? remainingDuration : diff;
+  }
 
   double get expireProgress {
     if (!isVip) return 0.0;
-    final totalSeconds = totalDays * 24 * 60 * 60;
-    final remainingSeconds = remainingDuration.inSeconds;
+    final totalSeconds = totalDuration.inSeconds;
     if (totalSeconds <= 0) return 0.0;
+    final remainingSeconds = remainingDuration.inSeconds;
     return (remainingSeconds / totalSeconds).clamp(0.0, 1.0);
   }
 }
@@ -284,6 +346,7 @@ class UserCardWidget extends ConsumerWidget {
       },
       loading: () => const _LoadingIndicator(),
       error: (_, __) => _buildNotLoggedIn(context),
+      skipLoadingOnRefresh: true,
     );
   }
 
@@ -329,91 +392,139 @@ class UserCardWidget extends ConsumerWidget {
         return Column(
           children: [
             SizedBox(
-              height: 200,
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: userInfo.isVip
-                        ? [
-                            Colors.green.withOpacity(0.2),
-                            Colors.green.withOpacity(0.05),
-                          ]
+                        ? [_goldLight, _goldMid]
                         : [
-                            Colors.grey.withOpacity(0.2),
-                            Colors.grey.withOpacity(0.05),
+                            context.colorScheme.surfaceContainerHighest,
+                            context.colorScheme.surfaceContainer,
                           ],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: userInfo.isVip
-                        ? Colors.green.withOpacity(0.3)
-                        : context.colorScheme.outline.withOpacity(0.2),
+                        ? _gold.withOpacity(0.55)
+                        : context.colorScheme.outline.withOpacity(0.18),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (userInfo.isVip ? Colors.green : Colors.grey).withOpacity(0.1),
-                      blurRadius: 20,
-                      spreadRadius: 2,
+                      color: userInfo.isVip
+                          ? _gold.withOpacity(0.28)
+                          : Colors.black.withOpacity(0.06),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                      spreadRadius: 0,
                     ),
                   ],
                 ),
-                child: Column(
+                child: StaggeredCard(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  gap: 14,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          _formatUsername(userInfo.username),
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () => _showVipBottomSheet(context, ref, userInfo),
-                          child: Container(
-                            height: 28,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: userInfo.isVip ? Colors.green : Colors.grey,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.diamond,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  userInfo.isVip ? 'VIP' : '普通',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                        _buildAvatar(context, userInfo),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _formatUsername(userInfo.username),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.3,
+                                          ),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  TapScale(
+                                    onTap: () =>
+                                        _showVipBottomSheet(context, ref, userInfo),
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 450),
+                                      curve: Curves.easeInOut,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: userInfo.isVip
+                                            ? const LinearGradient(
+                                                colors: [_gold, _goldDark],
+                                              )
+                                            : null,
+                                        color: userInfo.isVip
+                                            ? null
+                                            : context
+                                                .colorScheme.surfaceContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: userInfo.isVip
+                                            ? null
+                                            : Border.all(
+                                                color: context
+                                                    .colorScheme.outline
+                                                    .withOpacity(0.3),
+                                              ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.diamond,
+                                            color: userInfo.isVip
+                                                ? Colors.white
+                                                : context.colorScheme
+                                                    .onSurfaceVariant,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            userInfo.isVip ? 'VIP' : '普通',
+                                            style: TextStyle(
+                                              color: userInfo.isVip
+                                                  ? Colors.white
+                                                  : context.colorScheme
+                                                      .onSurfaceVariant,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  _buildMessageButton(context, ref),
+                                  const SizedBox(width: 8),
+                                  _buildCheckInButton(context, ref, isTodayChecked),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _buildMessageButton(context, ref),
-                        const SizedBox(width: 8),
-                        _buildCheckInButton(context, ref, isTodayChecked),
                       ],
                     ),
-                    const SizedBox(height: 12),
                     _buildTrafficRow(context, ref, userInfo),
-                    const SizedBox(height: 8),
                     _buildVipCountdownRow(context, ref, userInfo),
                   ],
                 ),
@@ -437,15 +548,48 @@ class UserCardWidget extends ConsumerWidget {
     return username.substring(0, 6) + '*';
   }
 
+  /// 头像：VIP 采用香槟金描边圆环 + 白色底盘 + 金色首字母；普通用户为中性灰圆环。
+  static Widget _buildAvatar(BuildContext context, PhantomUserInfo userInfo) {
+    final initial = userInfo.username.isNotEmpty
+        ? userInfo.username[0].toUpperCase()
+        : '?';
+    return Container(
+      width: 52,
+      height: 52,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: userInfo.isVip ? const LinearGradient(colors: [_gold, _goldDark]) : null,
+        color: userInfo.isVip ? null : context.colorScheme.outline.withOpacity(0.25),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: userInfo.isVip ? Colors.white : context.colorScheme.surface,
+        ),
+        child: Center(
+          child: Text(
+            initial,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: userInfo.isVip ? _goldDark : context.colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   static Widget _buildCheckInButton(BuildContext context, WidgetRef ref, bool isTodayChecked) {
-    return GestureDetector(
+    return TapScale(
       onTap: isTodayChecked ? null : () => _handleCheckIn(context, ref),
       child: Container(
         height: 28,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: isTodayChecked ? Colors.grey : Colors.orange,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -493,7 +637,7 @@ class UserCardWidget extends ConsumerWidget {
         final unreadCount = messagesData?['unreadCount'] ?? 0;
         final hasUnread = unreadCount > 0;
         
-        return GestureDetector(
+        return TapScale(
           onTap: () async {
             // 点击时刷新消息数据
             await ref.refresh(userMessagesProvider);
@@ -506,7 +650,7 @@ class UserCardWidget extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: hasUnread ? Colors.orange : Colors.blue,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -638,21 +782,58 @@ class UserCardWidget extends ConsumerWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.withOpacity(0.25),
+                    Colors.indigo.withOpacity(0.25),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.data_saver_off, color: Colors.blue, size: 22),
+              child: Icon(Icons.data_saver_off, color: Colors.blue.shade700, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '流量使用',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: context.colorScheme.onSurfaceVariant,
-                          ),
+                    Row(
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '流量',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: context.colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.arrow_upward,
+                          size: 12,
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          cachedTraffic.up.traffic.show,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: context.colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.arrow_downward,
+                          size: 12,
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          cachedTraffic.down.traffic.show,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: context.colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     ClipRRect(
@@ -683,18 +864,21 @@ class UserCardWidget extends ConsumerWidget {
   }
 
   static Widget _buildRenewalButton(BuildContext context, WidgetRef ref, PhantomUserInfo userInfo) {
-    return GestureDetector(
+    return TapScale(
       onTap: () => _showVipBottomSheet(context, ref, userInfo),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: context.colorScheme.primary,
-          borderRadius: BorderRadius.circular(8),
+          gradient: userInfo.isVip
+              ? const LinearGradient(colors: [_gold, _goldDark])
+              : null,
+          color: userInfo.isVip ? null : context.colorScheme.primary,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           '续费',
           style: TextStyle(
-            color: context.colorScheme.onPrimary,
+            color: userInfo.isVip ? Colors.white : context.colorScheme.onPrimary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -715,6 +899,7 @@ class UserCardWidget extends ConsumerWidget {
             data: (updatedUserInfo) {
               final info = updatedUserInfo ?? userInfo;
               return Container(
+                key: ValueKey(info.isVip),
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -814,8 +999,30 @@ class UserCardWidget extends ConsumerWidget {
   }
 
   static Widget _buildVipCountdownRow(BuildContext context, WidgetRef ref, PhantomUserInfo userInfo) {
-    return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 1)),
+    return _VipCountdown(userInfo: userInfo);
+  }
+}
+
+/// VIP 倒计时：stream 只在 initState 创建一次，避免每次重建都新建
+/// Stream.periodic 导致同一流被重复 listen（"Stream has already been listened to"）。
+class _VipCountdown extends ConsumerStatefulWidget {
+  final PhantomUserInfo userInfo;
+
+  const _VipCountdown({required this.userInfo});
+
+  @override
+  ConsumerState<_VipCountdown> createState() => _VipCountdownState();
+}
+
+class _VipCountdownState extends ConsumerState<_VipCountdown> {
+  late final Stream<void> _tick =
+      Stream.periodic(const Duration(seconds: 1)).asBroadcastStream();
+
+  @override
+  Widget build(BuildContext context) {
+    final userInfo = widget.userInfo;
+    return StreamBuilder<void>(
+      stream: _tick,
       builder: (context, snapshot) {
         final remaining = userInfo.remainingDuration;
         final days = remaining.inDays;
@@ -828,10 +1035,15 @@ class UserCardWidget extends ConsumerWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.15),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.withOpacity(0.25),
+                    Colors.teal.withOpacity(0.25),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.timer, color: Colors.green, size: 22),
+              child: Icon(Icons.timer, color: Colors.green.shade700, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -845,16 +1057,6 @@ class UserCardWidget extends ConsumerWidget {
                         ),
                   ),
                   const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: userInfo.expireProgress,
-                      minHeight: 8,
-                      backgroundColor: Colors.green.withOpacity(0.2),
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
                   Text(
                     '${days}天 ${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -865,7 +1067,7 @@ class UserCardWidget extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 12),
-            _buildRenewalButton(context, ref, userInfo),
+            UserCardWidget._buildRenewalButton(context, ref, userInfo),
           ],
         );
       },
@@ -878,13 +1080,58 @@ class _LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(48),
-      child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(
-          context.colorScheme.primary,
+    final block = DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+    return Shimmer(
+      child: Container(
+        height: 210,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: context.colorScheme.outline.withOpacity(0.18),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      block,
+                      const SizedBox(height: 10),
+                      SizedBox(width: 120, child: block),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            block,
+            const SizedBox(height: 14),
+            block,
+          ],
         ),
       ),
     );
   }
 }
+
+

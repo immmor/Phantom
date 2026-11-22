@@ -5,6 +5,8 @@ import 'package:fl_clash/manager/app_manager.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +34,8 @@ class HomePage extends StatelessWidget {
               final currentIndex = state.currentIndex;
               final bottomNavigationBar = NavigationBarTheme(
                 data: _NavigationBarDefaultsM3(context),
-                child: NavigationBar(
+                child: _GlassBottomNav(
+                  child: NavigationBar(
                   destinations: navigationItems
                       .map(
                         (e) => NavigationDestination(
@@ -46,7 +49,8 @@ class HomePage extends StatelessWidget {
                   },
                   selectedIndex: currentIndex,
                 ),
-              );
+              ),
+            );
               if (isMobile) {
                 return AnnotatedRegion<SystemUiOverlayStyle>(
                   value: systemUiOverlayStyle.copyWith(
@@ -219,7 +223,7 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
   late final TextTheme _textTheme = Theme.of(context).textTheme;
 
   @override
-  Color? get backgroundColor => _colors.surfaceContainer;
+  Color? get backgroundColor => _colors.surfaceContainer.withOpacity(0.82);
 
   @override
   Color? get shadowColor => Colors.transparent;
@@ -284,6 +288,23 @@ class HomeBackScopeContainer extends ConsumerWidget {
         return false;
       },
       child: child,
+    );
+  }
+}
+
+/// 底部导航栏毛玻璃层：模糊其下方页面内容，配合半透明底色形成玻璃质感。
+class _GlassBottomNav extends StatelessWidget {
+  final Widget child;
+
+  const _GlassBottomNav({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: child,
+      ),
     );
   }
 }
