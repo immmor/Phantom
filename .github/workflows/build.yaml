@@ -60,17 +60,6 @@ jobs:
           restore-keys: |
             cargo-${{ matrix.os }}-${{ matrix.arch }}-
 
-      - name: Cache Gradle project
-        if: startsWith(matrix.platform,'android')
-        uses: actions/cache@v4
-        with:
-          path: |
-            android/.gradle
-            build
-          key: gradle-project-${{ matrix.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'pubspec.lock', 'lib/**') }}
-          restore-keys: |
-            gradle-project-${{ matrix.os }}-
-
       - name: Setup Java
         if: startsWith(matrix.platform,'android')
         uses: actions/setup-java@v4
@@ -137,7 +126,18 @@ jobs:
           flutter pub get
 
       - name: Setup
-        run: dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} 2>&1 | tee build-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
+          path: build-*.log
+          if-no-files-found: ignore
 
       - name: Upload
         uses: actions/upload-artifact@v4
