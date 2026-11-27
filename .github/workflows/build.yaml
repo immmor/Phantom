@@ -142,7 +142,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: artifact-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
+          name: Phantom-1.2.1-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
           path: ./dist
           overwrite: true
 
@@ -223,7 +223,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./dist/
-          pattern: artifact-*
+          pattern: Phantom-1.2.1-*
           merge-multiple: true
 
       - name: Generate release.md
