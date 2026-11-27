@@ -14,6 +14,62 @@ import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
 
+/// 底部导航项：选中时图标坐进 accent 高亮块，无边框、无横线
+class _BottomNavItem extends StatelessWidget {
+  final Icon icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.colorScheme.primary;
+    final color = selected
+        ? accent
+        : context.colorScheme.onSurfaceVariant.opacity60;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 40,
+            height: 32,
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon.icon, size: 21, color: color),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0.4,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -32,25 +88,29 @@ class HomePage extends StatelessWidget {
               final isMobile = state.viewMode == ViewMode.mobile;
               final navigationItems = state.navigationItems;
               final currentIndex = state.currentIndex;
-              final bottomNavigationBar = NavigationBarTheme(
-                data: _NavigationBarDefaultsM3(context),
-                child: _GlassBottomNav(
-                  child: NavigationBar(
-                  destinations: navigationItems
-                      .map(
-                        (e) => NavigationDestination(
-                          icon: e.icon,
-                          label: Intl.message(e.label.name),
+              final bottomNavigationBar = _GlassBottomNav(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < navigationItems.length; i++)
+                        Expanded(
+                          child: _BottomNavItem(
+                            icon: navigationItems[i].icon,
+                            label: Intl.message(navigationItems[i].label.name),
+                            selected: i == currentIndex,
+                            onTap: () => appController.toPage(
+                              navigationItems[i].label,
+                            ),
+                          ),
                         ),
-                      )
-                      .toList(),
-                  onDestinationSelected: (index) {
-                    appController.toPage(navigationItems[index].label);
-                  },
-                  selectedIndex: currentIndex,
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
               if (isMobile) {
                 return AnnotatedRegion<SystemUiOverlayStyle>(
                   value: systemUiOverlayStyle.copyWith(
@@ -137,6 +197,18 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   initState() {
     super.initState();
     _pageController = PageController(initialPage: _pageIndex);
+    final pageLabel = ref.read(currentPageLabelProvider);
+    if (!widget.navigationItems.any((item) => item.label == pageLabel)) {
+      // 上次停留的页面已被隐藏（例如临时下线商城），回到第一个页面避免索引为 -1
+      final fallback = widget.navigationItems.isNotEmpty
+          ? widget.navigationItems.first.label
+          : PageLabel.home;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(currentPageLabelProvider.notifier).value = fallback;
+        }
+      });
+    }
     ref.listenManual(currentPageLabelProvider, (prev, next) {
       if (prev != next) {
         _toPage(next);
@@ -153,8 +225,10 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   }
 
   int get _pageIndex {
-    final pageLabel = ref.read(currentPageLabelProvider);
-    return widget.navigationItems.indexWhere((item) => item.label == pageLabel);
+    final index = widget.navigationItems.indexWhere(
+      (item) => item.label == ref.read(currentPageLabelProvider),
+    );
+    return index == -1 ? 0 : index;
   }
 
   Future<void> _toPage(
@@ -185,6 +259,14 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
 
   void _updatePageController() {
     final pageLabel = ref.read(currentPageLabelProvider);
+    if (!widget.navigationItems.any((item) => item.label == pageLabel)) {
+      if (widget.navigationItems.isNotEmpty) {
+        final fallback = widget.navigationItems.first.label;
+        ref.read(currentPageLabelProvider.notifier).value = fallback;
+        _toPage(fallback, true);
+      }
+      return;
+    }
     _toPage(pageLabel, true);
   }
 
@@ -207,63 +289,6 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
         return widget.pageBuilder(context, index);
       },
     );
-  }
-}
-
-class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
-  _NavigationBarDefaultsM3(this.context)
-    : super(
-        height: 80.0,
-        elevation: 3.0,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      );
-
-  final BuildContext context;
-  late final ColorScheme _colors = Theme.of(context).colorScheme;
-  late final TextTheme _textTheme = Theme.of(context).textTheme;
-
-  @override
-  Color? get backgroundColor => _colors.surfaceContainer.withOpacity(0.82);
-
-  @override
-  Color? get shadowColor => Colors.transparent;
-
-  @override
-  Color? get surfaceTintColor => Colors.transparent;
-
-  @override
-  WidgetStateProperty<IconThemeData?>? get iconTheme {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      return IconThemeData(
-        size: 24.0,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSecondaryContainer
-            : _colors.onSurfaceVariant,
-      );
-    });
-  }
-
-  @override
-  Color? get indicatorColor => _colors.secondaryContainer;
-
-  @override
-  ShapeBorder? get indicatorShape => const StadiumBorder();
-
-  @override
-  WidgetStateProperty<TextStyle?>? get labelTextStyle {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      final TextStyle style = _textTheme.labelMedium!;
-      return style.apply(
-        overflow: TextOverflow.ellipsis,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSurface
-            : _colors.onSurfaceVariant,
-      );
-    });
   }
 }
 
@@ -292,7 +317,7 @@ class HomeBackScopeContainer extends ConsumerWidget {
   }
 }
 
-/// 底部导航栏毛玻璃层：模糊其下方页面内容，配合半透明底色形成玻璃质感。
+/// 底部导航栏毛玻璃层：模糊其下方内容 + 半透明底色，无分隔横线
 class _GlassBottomNav extends StatelessWidget {
   final Widget child;
 
@@ -302,8 +327,14 @@ class _GlassBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: child,
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.colorScheme.surfaceContainerHigh
+                .withValues(alpha: 0.9),
+          ),
+          child: child,
+        ),
       ),
     );
   }

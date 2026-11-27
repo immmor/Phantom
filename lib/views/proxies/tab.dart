@@ -190,57 +190,58 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
           child: ValueListenableBuilder(
             valueListenable: _hasMoreButtonNotifier,
             builder: (_, value, child) {
-              return Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [
-                  TabBar(
-                    controller: _tabController,
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16 + (value ? 16 : 0),
-                    ),
-                    dividerColor: Colors.transparent,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
-                    labelColor: context.colorScheme.primary,
-                    unselectedLabelColor: context.colorScheme.onSurfaceVariant.opacity60,
-                    labelStyle: context.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    unselectedLabelStyle: context.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w400,
-                    ),
-                    tabs: [
-                      for (final group in groups)
-                        Tab(
-                          child: Builder(
-                            builder: (context) {
-                              return EmojiText(
-                                group.name,
-                                style: DefaultTextStyle.of(context).style,
-                              );
-                            },
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Stack(
+                  alignment: AlignmentDirectional.centerStart,
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      padding: EdgeInsets.only(right: value ? 56 : 0),
+                      dividerColor: Colors.transparent,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      labelColor: context.colorScheme.primary,
+                      unselectedLabelColor:
+                          context.colorScheme.onSurfaceVariant.opacity60,
+                      labelStyle: context.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      unselectedLabelStyle:
+                          context.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w400,
+                      ),
+                      tabs: [
+                        for (final group in groups)
+                          Tab(
+                            child: Builder(
+                              builder: (context) {
+                                return EmojiText(
+                                  group.name,
+                                  style: DefaultTextStyle.of(context).style,
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                  if (value) Positioned(right: 0, child: child!),
-                ],
+                      ],
+                    ),
+                    if (value) Positioned(right: 0, child: child!),
+                  ],
+                ),
               );
             },
             child: Container(
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    context.colorScheme.surfaceContainerHighest.opacity80,
-                    context.colorScheme.surfaceContainerHighest,
-                  ],
-                  stops: const [0.0, 0.1],
+                shape: BoxShape.circle,
+                color: context.colorScheme.surfaceContainerHigh.withValues(
+                  alpha: 0.9,
+                ),
+                border: Border.all(
+                  color: context.colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
               child: _buildMoreButton(),
@@ -344,8 +345,8 @@ class _ProxyGroupViewState extends ConsumerState<ProxyGroupView> {
         controller: _controller,
         padding: const EdgeInsets.only(
           top: 16,
-          left: 16,
-          right: 16,
+          left: 24,
+          right: 24,
           bottom: 96,
         ),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

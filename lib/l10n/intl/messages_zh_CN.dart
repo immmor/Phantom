@@ -350,6 +350,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "noIcon": MessageLookupByLibrary.simpleMessage("无图标"),
     "noInfo": MessageLookupByLibrary.simpleMessage("暂无信息"),
     "noLongerRemind": MessageLookupByLibrary.simpleMessage("不再提示"),
+    "later": MessageLookupByLibrary.simpleMessage("稍后再说"),
     "noMoreInfoDesc": MessageLookupByLibrary.simpleMessage("暂无更多信息"),
     "noNetwork": MessageLookupByLibrary.simpleMessage("无网络"),
     "noNetworkApp": MessageLookupByLibrary.simpleMessage("无网络应用"),

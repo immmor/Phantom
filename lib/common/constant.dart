@@ -99,7 +99,8 @@ const proxiesListStoreKey = PageStorageKey<String>('proxies_list');
 const toolsStoreKey = PageStorageKey<String>('tools');
 const profilesStoreKey = PageStorageKey<String>('profiles');
 
-const defaultPrimaryColor = 0XFFD8C0C3;
+/// 默认主色：低饱和鼠尾草绿，自然清新
+const defaultPrimaryColor = 0xFF86BBA4;
 
 /// 已连接时的主题色（青色，与 phantom.svg 渐变同源）
 const connectedPrimaryColor = 0xFF00BDE8;

@@ -1,20 +1,100 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/models/common.dart';
+import 'package:fl_clash/models/profile.dart';
+import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/webview_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final checkInBonusTraffic = ValueNotifier<double>(0.0);
 
+/// 未取到后端配额时的兜底值（2GB）
+const defaultMonthlyQuotaBytes = 2 * 1024 * 1024 * 1024.0;
+
+/// 每月基础配额（字节），登录后由后端 monthly_quota(MB) 换算写入
+final monthlyQuotaBytes = ValueNotifier<double>(defaultMonthlyQuotaBytes);
+
+/// 把后端 monthly_quota（MB，可为空）写入本地并同步全局配额值
+Future<void> applyMonthlyQuota(num? quotaMb) async {
+  final mb = quotaMb?.toDouble();
+  await preferences.setMonthlyQuota(mb);
+  monthlyQuotaBytes.value = mb == null ? defaultMonthlyQuotaBytes : mb * 1024 * 1024;
+}
+
+/// App 启动时从本地恢复配额
+Future<void> restoreMonthlyQuota() async {
+  await applyMonthlyQuota(await preferences.getMonthlyQuota());
+}
+
+/// App 启动时恢复当前账号的签到奖励流量。
+Future<void> restoreCheckInBonus() async {
+  checkInBonusTraffic.value = await preferences.getCheckInBonusTraffic() ?? 0;
+}
+
+/// 切换账号后重新加载该账号自己的本地数据（签到状态、已用流量、签到奖励）。
+/// 数据不会被清空，只是换成当前账号的那一份。
+Future<void> reloadAccountScopedCache(ProviderContainer container) async {
+  // 旧设备级数据先归到当前账号，再读取
+  await preferences.migrateLegacyAccountCache();
+  await restoreCheckInBonus();
+  container.invalidate(lastCheckInDateProvider);
+  // 直接在原 notifier 上重新读取，避免 invalidate 后 init() 被
+  // _initialized 短路而显示成 0。
+  await container.read(cachedTrafficProvider.notifier).reload();
+}
+
+/// 登录 / 切换账号时下载订阅。
+/// 强制走 DIRECT：此时还没有可用的新节点，走旧核心代理会失败。
+Future<Profile?> addProfileDirect(
+  ProviderContainer container,
+  String url,
+  String label, {
+  bool autoSelect = true,
+}) async {
+  try {
+    final dio = Dio()
+      ..httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.findProxy = (uri) => 'DIRECT';
+          client.badCertificateCallback = (_, host, cert) => true;
+          return client;
+        },
+      );
+
+    final response = await dio.get<Uint8List>(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    var profile = Profile.normal(label: label, url: url).copyWith(
+      subscriptionInfo: SubscriptionInfo.formHString(
+        response.headers.value('subscription-userinfo'),
+      ),
+    );
+    profile = await profile.saveFile(response.data ?? Uint8List(0));
+
+    container.read(profilesProvider.notifier).put(profile);
+    if (autoSelect) {
+      container.read(currentProfileIdProvider.notifier).value = profile.id;
+    }
+    return profile;
+  } catch (e) {
+    debugPrint('添加订阅失败：$e');
+    return null;
+  }
+}
+
 /// 高级感配色：VIP 采用香槟金，普通用户采用中性灰，整体在浅色主题下保持克制。
-const Color _goldLight = Color(0xFFFDF6E3);
-const Color _goldMid = Color(0xFFF8E8C8);
 const Color _gold = Color(0xFFD4AF37);
 const Color _goldDark = Color(0xFFB8860B);
 
@@ -185,13 +265,41 @@ Future<void> refreshUserBalance(WidgetRef ref) async {
   }
 }
 
-/// 打开充值页面：Android / iOS / macOS 使用应用内 WebView，其余平台回退外部浏览器
-void openPayPage(BuildContext context) {
-  const payUrl = 'https://funbua.uk/vpay';
+/// 打开充值页面：先生成一次性免密授权码，让充值页自动登录，
+/// Android / iOS / macOS 使用应用内 WebView，其余平台回退外部浏览器。
+Future<void> openPayPage(BuildContext context) async {
+  const basePayUrl = 'https://funbua.uk/vpay';
+  var payUrl = basePayUrl;
+  final username = await preferences.getUsername();
+  if (username != null) {
+    try {
+      final dio = Dio()
+        ..httpClientAdapter = IOHttpClientAdapter(
+          createHttpClient: () {
+            final client = HttpClient();
+            client.findProxy = (uri) => 'DIRECT';
+            client.badCertificateCallback = (_, host, cert) => true;
+            return client;
+          },
+        );
+      final res = await dio.post(
+        'https://api.immmor.com/api/quick-login-ticket',
+        data: {'username': username},
+        options: Options(headers: {'Origin': 'https://phantom.immmor.com'}),
+      );
+      if (res.data['success'] == true && res.data['ticket'] != null) {
+        payUrl =
+            '$basePayUrl?ticket=${Uri.encodeComponent(res.data['ticket'] as String)}';
+      }
+    } catch (e) {
+      debugPrint('获取充值授权码失败：$e');
+    }
+  }
+  if (!context.mounted) return;
   if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const InAppWebViewPage(url: payUrl, title: '充值'),
+        builder: (_) => InAppWebViewPage(url: payUrl, title: '充值'),
       ),
     );
     return;
@@ -277,7 +385,17 @@ class CachedTrafficNotifier extends Notifier<CachedTraffic> {
     _initialized = true;
     final cachedUp = await preferences.getCachedTotalUpTraffic() ?? 0;
     final cachedDown = await preferences.getCachedTotalDownTraffic() ?? 0;
+    debugPrint(
+      'cached traffic loaded: user=${await preferences.getUsername()} '
+      'up=$cachedUp down=$cachedDown',
+    );
     state = CachedTraffic(up: cachedUp, down: cachedDown);
+  }
+
+  /// 账号切换后强制重新读取当前账号的流量缓存。
+  Future<void> reload() async {
+    _initialized = false;
+    await init();
   }
 
   Future<void> addTraffic(Traffic traffic) async {
@@ -401,25 +519,19 @@ class UserCardWidget extends ConsumerWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: userInfo.isVip
-                        ? [_goldLight, _goldMid]
-                        : [
-                            context.colorScheme.surfaceContainerHighest,
-                            context.colorScheme.surfaceContainer,
-                          ],
+                    colors: [
+                      context.colorScheme.surfaceContainerHighest,
+                      context.colorScheme.surfaceContainer,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: userInfo.isVip
-                        ? _gold.withOpacity(0.55)
-                        : context.colorScheme.outline.withOpacity(0.18),
+                    color: context.colorScheme.outline.withOpacity(0.18),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: userInfo.isVip
-                          ? _gold.withOpacity(0.28)
-                          : Colors.black.withOpacity(0.06),
+                      color: Colors.black.withOpacity(0.06),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                       spreadRadius: 0,
@@ -432,7 +544,7 @@ class UserCardWidget extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        _buildAvatar(context, userInfo),
+                        _buildAvatar(context),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
@@ -548,33 +660,19 @@ class UserCardWidget extends ConsumerWidget {
     return username.substring(0, 6) + '*';
   }
 
-  /// 头像：VIP 采用香槟金描边圆环 + 白色底盘 + 金色首字母；普通用户为中性灰圆环。
-  static Widget _buildAvatar(BuildContext context, PhantomUserInfo userInfo) {
-    final initial = userInfo.username.isNotEmpty
-        ? userInfo.username[0].toUpperCase()
-        : '?';
-    return Container(
+  /// 头像：仅 logo，无外圈。
+  static Widget _buildAvatar(BuildContext context) {
+    return SizedBox(
       width: 52,
       height: 52,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: userInfo.isVip ? const LinearGradient(colors: [_gold, _goldDark]) : null,
-        color: userInfo.isVip ? null : context.colorScheme.outline.withOpacity(0.25),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: userInfo.isVip ? Colors.white : context.colorScheme.surface,
-        ),
-        child: Center(
-          child: Text(
-            initial,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: userInfo.isVip ? _goldDark : context.colorScheme.primary,
-            ),
+      child: Center(
+        child: SvgPicture.asset(
+          'assets/images/phantom.svg',
+          width: 40,
+          height: 40,
+          colorFilter: ColorFilter.mode(
+            context.colorScheme.onSurfaceVariant.opacity60,
+            BlendMode.srcIn,
           ),
         ),
       ),
@@ -583,7 +681,9 @@ class UserCardWidget extends ConsumerWidget {
 
   static Widget _buildCheckInButton(BuildContext context, WidgetRef ref, bool isTodayChecked) {
     return TapScale(
-      onTap: isTodayChecked ? null : () => _handleCheckIn(context, ref),
+      // 始终允许点击：本地日期可能被旧版本写入但服务端并未签到，
+      // 让服务端判定是否重复，同时可顺带刷新已过期的免费节点。
+      onTap: () => _handleCheckIn(context, ref),
       child: Container(
         height: 28,
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -615,17 +715,80 @@ class UserCardWidget extends ConsumerWidget {
   }
 
   static Future<void> _handleCheckIn(BuildContext context, WidgetRef ref) async {
-    await preferences.setLastCheckInDate(DateTime.now());
-    ref.invalidate(lastCheckInDateProvider);
-    checkInBonusTraffic.value += 50 * 1024 * 1024;
-    
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('签到成功！赠送 50MB 流量'),
-          duration: Duration(seconds: 2),
+    final username = await preferences.getUsername();
+    if (username == null || username.isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final dio = Dio()
+        ..httpClientAdapter = IOHttpClientAdapter(
+          createHttpClient: () {
+            final client = HttpClient();
+            client.findProxy = (uri) => 'DIRECT';
+            client.badCertificateCallback = (_, host, cert) => true;
+            return client;
+          },
+        );
+
+      final res = await dio.post(
+        'https://api.immmor.com/api/checkin',
+        data: {
+          'username': username,
+          // 与 JS Date#getTimezoneOffset 一致：UTC - 本地（东八区为 -480）
+          'timezoneOffset': -DateTime.now().timeZoneOffset.inMinutes,
+        },
+      );
+
+      final data = res.data;
+      final code = data is Map ? data['code'] : null;
+      if (code != 200) {
+        final msg =
+            (data is Map ? data['msg'] : null)?.toString() ?? '签到失败，请稍后重试';
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
+        return;
+      }
+
+      final msg =
+          (data is Map ? data['msg'] : null)?.toString() ?? '签到成功，免费节点已更新';
+
+      await preferences.setLastCheckInDate(DateTime.now());
+      ref.invalidate(lastCheckInDateProvider);
+
+      // 服务端返回「今日已签到」时不重复发放本地奖励
+      if (!msg.contains('已签到')) {
+        checkInBonusTraffic.value += 50 * 1024 * 1024;
+        await preferences.setCheckInBonusTraffic(checkInBonusTraffic.value);
+      }
+
+      // 免费节点有效期由后端签到结果决定，签到后需重新下载订阅才会生效
+      await _refreshFreeProfile(ref);
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 2),
         ),
       );
+    } catch (e) {
+      debugPrint('签到失败：$e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('签到失败，请检查网络后重试')),
+      );
+    }
+  }
+
+  /// 重新下载并应用免费节点订阅，让签到后的节点立即生效。
+  static Future<void> _refreshFreeProfile(WidgetRef ref) async {
+    final freeProfiles = ref
+        .read(profilesProvider)
+        .where((p) => p.url.contains('/free/clash') || p.label.contains('免费'))
+        .toList();
+    for (final profile in freeProfiles) {
+      try {
+        await appController.updateProfile(profile);
+      } catch (e) {
+        debugPrint('刷新免费节点失败：$e');
+      }
     }
   }
 
@@ -767,15 +930,16 @@ class UserCardWidget extends ConsumerWidget {
   }
 
   static Widget _buildTrafficRow(BuildContext context, WidgetRef ref, PhantomUserInfo userInfo) {
-    return Consumer(
+    return ValueListenableBuilder<double>(
+      valueListenable: monthlyQuotaBytes,
+      builder: (context, baseMaxBytes, child) => Consumer(
       builder: (context, ref, child) {
         // 流量增量累加与限额判断已移到 controller.updateTraffic 数据层，
         // 这里只做展示，避免卡片未挂载时流量漏记
         final cachedTraffic = ref.watch(cachedTrafficProvider);
         final usedBytes = cachedTraffic.up + cachedTraffic.down;
-        const baseMaxBytes = 2 * 1024 * 1024 * 1024; // 2GB 基础配额
-        final maxBytes = baseMaxBytes + checkInBonusTraffic.value; // 总配额 = 2GB + 签到奖励
-        final progress = (usedBytes / maxBytes).clamp(0.0, 1.0);
+        final maxBytes = baseMaxBytes + checkInBonusTraffic.value; // 总配额 = 后端月配额 + 签到奖励
+        final progress = maxBytes > 0 ? (usedBytes / maxBytes).clamp(0.0, 1.0) : 0.0;
         return Row(
           children: [
             Container(
@@ -860,6 +1024,7 @@ class UserCardWidget extends ConsumerWidget {
           ],
         );
       },
+      ),
     );
   }
 
@@ -1133,5 +1298,7 @@ class _LoadingIndicator extends StatelessWidget {
     );
   }
 }
+
+
 
 

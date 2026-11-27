@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image
 
 SVG_PATH = Path("assets/images/phantom.svg")          # 托盘/剪影图标（无背景）
-ICON_SVG_PATH = Path("assets/images/phantom_icon.svg")  # APP 图标（黑底）
+ICON_SVG_PATH = Path("assets/images/phantom_icon_navy.svg")  # APP 图标（墨蓝底青幽灵）
 ICO_PATH = Path("windows/runner/resources/app_icon.ico")
 STATUS_DIR = Path("assets/images/icon")
 ROOT_ICON_PNG = Path("assets/images/icon.png")   # Linux 打包用（deb/appimage/rpm）
@@ -165,7 +165,7 @@ def main() -> None:
             sys.exit(1)
 
     with tempfile.TemporaryDirectory() as tmp:
-        # APP 图标（黑底）：Windows app_icon.ico + 根目录通用图标
+        # APP 图标（墨蓝底）：Windows app_icon.ico + 根目录通用图标
         app_png = Path(tmp) / "app_icon_1024.png"
         if render_with_resvg(ICON_SVG_PATH, app_png):
             print("Rendered app icon with resvg")

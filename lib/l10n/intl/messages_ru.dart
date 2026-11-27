@@ -545,6 +545,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "noLongerRemind": MessageLookupByLibrary.simpleMessage(
       "Больше не напоминать",
     ),
+    "later": MessageLookupByLibrary.simpleMessage("Позже"),
     "noMoreInfoDesc": MessageLookupByLibrary.simpleMessage(
       "Нет дополнительной информации",
     ),

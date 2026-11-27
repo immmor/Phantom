@@ -30,6 +30,7 @@ typedef UpdateTasks = List<FutureOr Function()>;
 class GlobalState {
   static GlobalState? _instance;
   final navigatorKey = GlobalKey<NavigatorState>();
+  final homeLogoKey = GlobalKey();
   ProviderContainer? container;
   Timer? timer;
   bool _updateTasksStopped = false;
@@ -173,6 +174,7 @@ class GlobalState {
     String? cancelText,
     bool cancelable = true,
     bool? dismissible,
+    VoidCallback? onConfirm,
   }) async {
     return await showCommonDialog<bool>(
       context: context,
@@ -191,6 +193,10 @@ class GlobalState {
                 ),
               TextButton(
                 onPressed: () {
+                  if (onConfirm != null) {
+                    onConfirm();
+                    return;
+                  }
                   Navigator.of(context).pop(true);
                 },
                 child: Text(confirmText ?? appLocalizations.confirm),

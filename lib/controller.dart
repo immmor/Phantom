@@ -38,20 +38,22 @@ class AppController {
     _ref = ref;
     await _init();
     isAttach = true;
+    autoCheckUpdate();
   }
 }
 
 extension InitControllerExt on AppController {
   Future<void> _init() async {
     FlutterError.onError = (details) {
+      // Print the full details so layout errors include the widget/file:line
+      // that caused them (details.exception alone drops that information).
       commonPrint.log(
-        'exception: ${details.exception} stack: ${details.stack}',
+        'exception: $details',
         logLevel: LogLevel.warning,
       );
     };
     updateTray();
     autoUpdateProfiles();
-    autoCheckUpdate();
     autoLaunch?.updateStatus(_ref.read(appSettingProvider).autoLaunch);
     if (!_ref.read(appSettingProvider).silentLaunch) {
       window?.show();
@@ -163,7 +165,6 @@ extension InitControllerExt on AppController {
   }
 
   Future<void> autoCheckUpdate() async {
-    if (!_ref.read(appSettingProvider).autoCheckUpdate) return;
     final res = await request.checkForUpdate();
     checkUpdateResultHandle(data: res);
   }
@@ -173,14 +174,18 @@ extension InitControllerExt on AppController {
     bool isUser = false,
   }) async {
     if (data != null) {
-      final tagName = data['tag_name'];
-      final body = data['body'];
-      final submits = utils.parseReleaseBody(body);
+      final latestVersion = data['latestVersion'];
+      final changelog = data['changelog'];
+      final submits = changelog is List
+          ? changelog.map((e) => e.toString()).toList()
+          : <String>[];
+      final downloadUrl = data['downloadUrl']?.toString() ?? '';
+      final forceUpdate = data['forceUpdate'] == true;
       final textTheme = _context.textTheme;
       final res = await globalState.showMessage(
         title: appLocalizations.discoverNewVersion,
         message: TextSpan(
-          text: '$tagName \n',
+          text: '$latestVersion \n',
           style: textTheme.headlineSmall,
           children: [
             TextSpan(text: '\n', style: textTheme.bodyMedium),
@@ -189,14 +194,19 @@ extension InitControllerExt on AppController {
           ],
         ),
         confirmText: appLocalizations.goDownload,
-        cancelText: isUser ? null : appLocalizations.noLongerRemind,
+        cancelText: isUser ? null : appLocalizations.later,
+        cancelable: !forceUpdate,
+        dismissible: !forceUpdate,
+        onConfirm: forceUpdate
+            ? () {
+                if (downloadUrl.isNotEmpty) {
+                  launchUrl(Uri.parse(downloadUrl));
+                }
+              }
+            : null,
       );
-      if (res == true) {
-        launchUrl(Uri.parse('https://github.com/$repository/releases/latest'));
-      } else if (!isUser && res == false) {
-        _ref
-            .read(appSettingProvider.notifier)
-            .update((state) => state.copyWith(autoCheckUpdate: false));
+      if (res == true && downloadUrl.isNotEmpty) {
+        launchUrl(Uri.parse(downloadUrl));
       }
     } else if (isUser) {
       globalState.showMessage(
@@ -642,18 +652,23 @@ extension SetupControllerExt on AppController {
 
   Future<void> updateConfigDebounce() async {
     debouncer.call(FunctionTag.updateConfig, () async {
-      await safeRun(() async {
+      final success = await safeRun(() async {
         final updateParams = _ref.read(updateParamsProvider);
         final res = await _requestAdmin(updateParams.tun.enable);
         if (res.isError) {
-          return;
+          return false;
         }
         final realTunEnable = _ref.read(realTunEnableProvider);
         final message = await coreController.updateConfig(
           updateParams.copyWith.tun(enable: realTunEnable),
         );
         if (message.isNotEmpty) throw message;
+        return true;
       });
+      // 配置（含出站模式）已下发到内核后再检测 IP，避免国旗显示切换前的旧出口
+      if (success == true) {
+        addCheckIp();
+      }
     });
   }
 
@@ -686,7 +701,8 @@ extension SetupControllerExt on AppController {
     if (mode == Mode.global) {
       updateCurrentGroupName(GroupName.GLOBAL.name);
     }
-    addCheckIp();
+    // IP 检测由 updateConfigDebounce 在配置下发到内核后触发，
+    // 避免此处过早检测到切换前的旧出口 IP
   }
 
   void autoApplyProfile() {
@@ -1210,8 +1226,7 @@ extension CommonControllerExt on AppController {
     if (_ref.read(runTimeProvider) == null) return;
     final cached = _ref.read(cachedTrafficProvider);
     final usedBytes = cached.up + cached.down;
-    const baseMaxBytes = 2 * 1024 * 1024 * 1024; // 2GB 基础配额
-    final maxBytes = baseMaxBytes + checkInBonusTraffic.value;
+    final maxBytes = monthlyQuotaBytes.value + checkInBonusTraffic.value;
     if (usedBytes < maxBytes) return;
     _trafficLimitDisconnected = true;
     commonPrint.log(

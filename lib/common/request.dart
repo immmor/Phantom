@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -13,6 +14,18 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter/cupertino.dart';
 
 class Request {
+  static const _archMap = <Abi, String>{
+    Abi.androidArm: 'armv7',
+    Abi.androidArm64: 'arm64',
+    Abi.androidX64: 'x64',
+    Abi.macosArm64: 'arm64',
+    Abi.macosX64: 'x64',
+    Abi.windowsArm64: 'arm64',
+    Abi.windowsX64: 'x64',
+    Abi.linuxArm64: 'arm64',
+    Abi.linuxX64: 'x64',
+  };
+
   late final Dio dio;
   late final Dio _clashDio;
   String? userAgent;
@@ -72,18 +85,22 @@ class Request {
   }
 
   Future<Map<String, dynamic>?> checkForUpdate() async {
+    final version = globalState.packageInfo.version;
+    final platform = Platform.operatingSystem;
+    final arch = _archMap[Abi.current()] ?? '';
     try {
       final response = await dio.get(
-        'https://api.github.com/repos/$repository/releases/latest',
+        'https://api.funbua.uk/api/app/update',
+        queryParameters: {
+          'version': version,
+          'platform': platform,
+          'arch': arch,
+        },
         options: Options(responseType: ResponseType.json),
       );
       if (response.statusCode != 200) return null;
       final data = response.data as Map<String, dynamic>;
-      final remoteVersion = data['tag_name'];
-      final version = globalState.packageInfo.version;
-      final hasUpdate =
-          utils.compareVersions(remoteVersion.replaceAll('v', ''), version) > 0;
-      if (!hasUpdate) return null;
+      if (data['success'] != true || data['hasUpdate'] != true) return null;
       return data;
     } catch (e) {
       commonPrint.log('checkForUpdate failed', logLevel: LogLevel.warning);

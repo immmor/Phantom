@@ -32,12 +32,13 @@ class Navigation {
             const ProxiesView(key: GlobalObjectKey(PageLabel.proxies)),
         modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
       ),
-      NavigationItem(
-        icon: const Icon(Icons.shopping_bag_outlined),
-        label: PageLabel.mall,
-        builder: (_) => const MallView(key: GlobalObjectKey(PageLabel.mall)),
-        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
-      ),
+      // 临时隐藏商城入口
+      // NavigationItem(
+      //   icon: const Icon(Icons.shopping_bag_outlined),
+      //   label: PageLabel.mall,
+      //   builder: (_) => const MallView(key: GlobalObjectKey(PageLabel.mall)),
+      //   modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
+      // ),
       NavigationItem(
         icon: Icon(Icons.folder),
         label: PageLabel.profiles,

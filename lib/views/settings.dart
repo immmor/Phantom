@@ -18,27 +18,107 @@ class SettingsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: StaggeredList(
-            padding: const EdgeInsets.only(bottom: 20),
-            gap: 8,
-            duration: const Duration(milliseconds: 500),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: UserCardWidget(),
-              ),
-              const _LocaleItem(),
-              if (system.isAndroid) const _AccessItem(),
-              const _InfoItem(),
-              const _ClearCacheItem(),
-              const _LoginItem(),
-            ],
+      body: Stack(
+        children: [
+          SwissBackground(
+            accent: context.colorScheme.primary,
+            glowAlpha: 0.09,
+          ),
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
+                  child: _buildPageHeader(context),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: StaggeredList(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      gap: 10,
+                      duration: const Duration(milliseconds: 500),
+                      children: [
+                        const UserCardWidget(),
+                        const SizedBox(height: 4),
+                        _buildSettingsGroup(context),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 页面品牌头：与首页一致的瑞士极简排版
+  Widget _buildPageHeader(BuildContext context) {
+    final outline = context.colorScheme.outline;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'PHANTOM',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2.6,
+            color: context.colorScheme.onSurface,
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          '我的账户',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 2.4,
+            color: context.colorScheme.onSurfaceVariant.opacity60,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(height: 1, color: outline.withValues(alpha: 0.12)),
+      ],
+    );
+  }
+
+  /// 设置项：玻璃面板 + 1px 结构线，延续首页的克制排版
+  Widget _buildSettingsGroup(BuildContext context) {
+    final outline = context.colorScheme.outline;
+    return GlassSurface(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      borderRadius: BorderRadius.circular(20),
+      blur: 18,
+      tintOpacity: 0.35,
+      borderOpacity: 0.7,
+      boxShadow: const [],
+      child: Column(
+        children: [
+          const _LocaleItem(),
+          _buildHairline(outline),
+          if (system.isAndroid) ...[
+            const _AccessItem(),
+            _buildHairline(outline),
+          ],
+          const _InfoItem(),
+          _buildHairline(outline),
+          const _LoginItem(),
+        ],
       ),
+    );
+  }
+
+  Widget _buildHairline(Color outline) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(height: 1, color: outline.withValues(alpha: 0.1)),
     );
   }
 }
@@ -208,6 +288,7 @@ class _ClearCacheItem extends ConsumerWidget {
     await preferences.setLastCheckInDate(DateTime(1970));
     
     // 重置签到奖励流量
+    await preferences.setCheckInBonusTraffic(null);
     checkInBonusTraffic.value = 0.0;
     
     // 刷新流量显示
@@ -288,6 +369,12 @@ class _LoginItem extends ConsumerWidget {
       await preferences.setVExpireDate(null);
       await preferences.setVipStartDate(null);
       await preferences.setBalance(null);
+      await preferences.setMonthlyQuota(null);
+      monthlyQuotaBytes.value = defaultMonthlyQuotaBytes;
+      // 切到未登录账号的数据，不会删除原账号的数据
+      await reloadAccountScopedCache(
+        ProviderScope.containerOf(context, listen: false),
+      );
       ref.invalidate(phantomHomeProvider);
     }
   }

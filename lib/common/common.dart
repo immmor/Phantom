@@ -8,6 +8,7 @@ export 'converter.dart';
 export 'glass.dart';
 export 'shimmer.dart';
 export 'staggered_list.dart';
+export 'swiss_background.dart';
 export 'tap_scale.dart';
 export 'datetime.dart';
 export 'file.dart';

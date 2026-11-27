@@ -462,6 +462,7 @@
   "minutesAgo": "{count, plural, one{{count} минута назад} few{{count} минуты назад} many{{count} минут назад} other{{count} минуты назад}}",
   "justNow": "Только что",
   "noLongerRemind": "Больше не напоминать",
+  "later": "Позже",
   "accessControlSettings": "Настройки контроля доступа",
   "turnOn": "Включить",
   "turnOff": "Выключить",

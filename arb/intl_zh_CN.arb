@@ -454,6 +454,7 @@
   "minutesAgo": "{count} 分钟前",
   "justNow": "刚刚",
   "noLongerRemind": "不再提示",
+  "later": "稍后再说",
   "accessControlSettings": "访问控制设置",
   "turnOn": "开启",
   "turnOff": "关闭",

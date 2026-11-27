@@ -18,15 +18,17 @@ Future<void> main() async {
     runApp(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(
+        child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Application(),
+          scrollBehavior: HiddenBarScrollBehavior(),
+          home: const Application(),
         ),
       ),
     );
   } catch (e, s) {
     return runApp(
       MaterialApp(
+        scrollBehavior: HiddenBarScrollBehavior(),
         home: InitErrorScreen(error: e, stack: s),
       ),
     );

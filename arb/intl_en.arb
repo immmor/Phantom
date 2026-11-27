@@ -453,6 +453,7 @@
   "minutesAgo": "{count, plural, =1{1 minute ago} other{{count} minutes ago}}",
   "justNow": "Just now",
   "noLongerRemind": "Don't remind again",
+  "later": "Later",
   "accessControlSettings": "Access Control Settings",
   "turnOn": "Turn On",
   "turnOff": "Turn Off",

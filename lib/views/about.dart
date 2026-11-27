@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/glass.dart';
+import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
@@ -11,134 +13,208 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AboutView extends StatelessWidget {
+class AboutView extends ConsumerStatefulWidget {
   const AboutView({super.key});
 
   @override
+  ConsumerState<AboutView> createState() => _AboutViewState();
+}
+
+class _AboutViewState extends ConsumerState<AboutView> {
+  bool _isCheckingUpdate = false;
+
+  Future<void> _checkUpdate() async {
+    if (_isCheckingUpdate) return;
+    setState(() => _isCheckingUpdate = true);
+    try {
+      final data = await request.checkForUpdate();
+      await appController.checkUpdateResultHandle(data: data, isUser: true);
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdate = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = [
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: CommonCard(
-          type: CommonCardType.filled,
-          onPressed: () {},
-          radius: 16,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Consumer(
-              builder: (_, ref, _) {
-                return _DeveloperModeDetector(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: ShapeDecoration(
-                          color: context.colorScheme.surfaceContainerHighest,
-                          shape: RoundedSuperellipseBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        padding: EdgeInsets.all(8),
-                        child: Transform.translate(
-                          offset: Offset(0, -1),
-                          child: SvgPicture.asset('assets/images/phantom.svg', width: 34, height: 34),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        appName,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        globalState.packageInfo.version,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.colorScheme.onSurfaceVariant.opacity80,
-                        ),
-                      ),
-                    ],
-                  ),
-                  onEnterDeveloperMode: () {
-                    ref
-                        .read(appSettingProvider.notifier)
-                        .update((state) => state.copyWith(developerMode: true));
-                    context.showNotifier(
-                      appLocalizations.developerModeEnableTip,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: CommonCard(
-          onPressed: () {},
-          radius: 12,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              appLocalizations.desc,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: context.colorScheme.onSurfaceVariant.opacity80,
-              ),
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: CommonCard(
-          onPressed: () {},
-          radius: 12,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: const DeviceInfoView(),
-          ),
-        ),
-      ),
-    ];
+    final accent = context.colorScheme.primary;
+    final outline = context.colorScheme.outline;
     return BaseScaffold(
       title: appLocalizations.about,
-      body: Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 16),
-        child: generateListView(items),
+      body: Stack(
+        children: [
+          SwissBackground(accent: accent, glowAlpha: 0.09),
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildBrandCard(accent),
+                const SizedBox(height: 12),
+                _buildDescCard(),
+                const SizedBox(height: 12),
+                _buildDeviceCard(outline),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrandCard(Color accent) {
+    return GlassSurface(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      borderRadius: BorderRadius.circular(20),
+      blur: 18,
+      tintOpacity: 0.35,
+      borderOpacity: 0.7,
+      boxShadow: const [],
+      child: _DeveloperModeDetector(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              'assets/images/phantom.svg',
+              width: 44,
+              height: 44,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              appName,
+              style: context.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  globalState.packageInfo.version,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: context.colorScheme.onSurfaceVariant.opacity80,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _isCheckingUpdate ? null : _checkUpdate,
+                  child: SizedBox(
+                    width: 24,
+                    height: 16,
+                    child: _isCheckingUpdate
+                        ? const Center(
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              '更新',
+                              style: TextStyle(fontSize: 12, color: accent),
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        onEnterDeveloperMode: () {
+          ref
+              .read(appSettingProvider.notifier)
+              .update((state) => state.copyWith(developerMode: true));
+          context.showNotifier(appLocalizations.developerModeEnableTip);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDescCard() {
+    return GlassSurface(
+      padding: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(16),
+      blur: 18,
+      tintOpacity: 0.3,
+      borderOpacity: 0.6,
+      boxShadow: const [],
+      child: Text(
+        appLocalizations.desc,
+        style: context.textTheme.bodyMedium?.copyWith(
+          color: context.colorScheme.onSurfaceVariant.opacity80,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceCard(Color outline) {
+    return GlassSurface(
+      padding: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(16),
+      blur: 18,
+      tintOpacity: 0.3,
+      borderOpacity: 0.6,
+      boxShadow: const [],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.devices_other,
+                size: 16,
+                color: context.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '设备信息',
+                style: context.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(height: 1, color: outline.withValues(alpha: 0.1)),
+          const SizedBox(height: 12),
+          const DeviceInfoView(showHeader: false),
+        ],
       ),
     );
   }
 }
 
 class DeviceInfoView extends StatelessWidget {
-  const DeviceInfoView({super.key});
+  final bool showHeader;
+
+  const DeviceInfoView({super.key, this.showHeader = true});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(
-              Icons.devices_other,
-              size: 18,
-              color: context.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '设备信息',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+        if (showHeader) ...[
+          Row(
+            children: [
+              Icon(
+                Icons.devices_other,
+                size: 18,
+                color: context.colorScheme.primary,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+              const SizedBox(width: 8),
+              Text(
+                '设备信息',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         FutureBuilder<BaseDeviceInfo>(
           future: DeviceInfoPlugin().deviceInfo,
           builder: (context, snapshot) {

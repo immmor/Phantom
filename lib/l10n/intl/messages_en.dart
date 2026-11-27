@@ -523,6 +523,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "noLongerRemind": MessageLookupByLibrary.simpleMessage(
       "Don\'t remind again",
     ),
+    "later": MessageLookupByLibrary.simpleMessage("Later"),
     "noMoreInfoDesc": MessageLookupByLibrary.simpleMessage("No more info"),
     "noNetwork": MessageLookupByLibrary.simpleMessage("No network"),
     "noNetworkApp": MessageLookupByLibrary.simpleMessage("No network APP"),

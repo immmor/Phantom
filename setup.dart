@@ -425,10 +425,13 @@ class BuildCommand extends Command {
     required String env,
   }) async {
     await Build.getDistributor();
+    final home = Platform.environment['HOME'];
+    final distributor =
+        home != null ? '$home/.pub-cache/bin/flutter_distributor' : 'flutter_distributor';
     await Build.exec(
       name: name,
       Build.getExecutable(
-        'flutter_distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose,dart-define-from-file=env.json$args',
+        '$distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose,dart-define-from-file=env.json$args',
       ),
     );
   }
@@ -447,8 +450,16 @@ class BuildCommand extends Command {
   Future<void> run() async {
     final mode = target == Target.android ? Mode.lib : Mode.core;
     final String out = argResults?['out'] ?? (target.same ? 'app' : 'core');
-    final archName = argResults?['arch'];
+    var archName = argResults?['arch'];
     final env = argResults?['env'] ?? 'pre';
+    if (archName == null && target == Target.macos) {
+      final currentArch = await systemArch;
+      if (currentArch == 'arm64') {
+        archName = 'arm64';
+      } else if (currentArch == 'x86_64') {
+        archName = 'amd64';
+      }
+    }
     final currentArches = arches
         .where((element) => element.name == archName)
         .toList();

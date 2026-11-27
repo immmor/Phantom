@@ -30,7 +30,7 @@ GroupsState currentGroupsState(Ref ref) {
   );
   return GroupsState(
     value: switch (mode) {
-      Mode.direct => [],
+      Mode.direct => groups.toList(),
       Mode.global => groups.toList(),
       Mode.rule =>
         groups

@@ -4,12 +4,13 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/manager/window_manager.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 
 class AppStateManager extends ConsumerStatefulWidget {
@@ -145,25 +146,15 @@ class AppSidebarContainer extends ConsumerWidget {
     required Widget child,
   }) {
     return GlassSurface(
-      tint: context.colorScheme.surfaceContainer,
-      tintOpacity: 0.7,
-      blur: 18,
+      tint: context.colorScheme.surfaceContainerHigh,
+      tintOpacity: 0.9,
+      blur: 20,
       borderRadius: BorderRadius.zero,
-      borderOpacity: 0.15,
+      borderOpacity: 0,
       boxShadow: const [],
       clip: false,
       child: child,
     );
-    // if (!system.isMacOS) {
-    //   return Material(
-    //     color: context.colorScheme.surfaceContainer,
-    //     child: child,
-    //   );
-    // }
-    // return child;
-    // return TransparentMacOSSidebar(
-    //   child: Material(color: Colors.transparent, child: child),
-    // );
   }
 
   void _updateSideBarWidth(WidgetRef ref, double contentWidth) {
@@ -190,6 +181,59 @@ class AppSidebarContainer extends ConsumerWidget {
     };
   }
 
+  /// 自定义导航项：仅图标 + 文字，无高亮块、无边框、无横线
+  Widget _buildSidebarNavItem({
+    required BuildContext context,
+    required NavigationItem item,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final accent = context.colorScheme.primary;
+    final color = selected
+        ? accent
+        : context.colorScheme.onSurfaceVariant.opacity60;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(item.icon.icon, size: 21, color: color),
+            const SizedBox(height: 4),
+            Text(
+              getPageLabelName(item.label),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+                decoration: TextDecoration.none,
+                decorationColor: Colors.transparent,
+                decorationThickness: 0,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 侧边栏品牌头：直接使用连接状态下的原色 logo
+  Widget _buildSidebarBrand(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SvgPicture.asset(
+        'assets/images/phantom.svg',
+        width: 34,
+        height: 34,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final navigationState = ref.watch(navigationStateProvider);
@@ -199,81 +243,48 @@ class AppSidebarContainer extends ConsumerWidget {
       return child;
     }
     final currentIndex = navigationState.currentIndex;
-    final showLabel = ref.watch(appSettingProvider).showLabel;
     return Row(
       children: [
-        _buildBackground(
-          context: context,
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (system.isMacOS) SizedBox(height: 22),
-                SizedBox(height: 10),
-                if (!system.isMacOS) ...[
-                  ClipRect(child: AppIcon()),
-                  SizedBox(height: 12),
-                ],
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: HiddenBarScrollBehavior(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: NavigationRail(
-                            scrollable: true,
-                            minExtendedWidth: 200,
-                            backgroundColor: Colors.transparent,
-                            selectedLabelTextStyle: context
-                                .textTheme
-                                .labelLarge!
-                                .copyWith(color: context.colorScheme.onSurface),
-                            unselectedLabelTextStyle: context
-                                .textTheme
-                                .labelLarge!
-                                .copyWith(color: context.colorScheme.onSurface),
-                            destinations: navigationItems
-                                .map(
-                                  (e) => NavigationRailDestination(
-                                    icon: e.icon,
-                                    label: Text(getPageLabelName(e.label)),
-                                  ),
-                                )
-                                .toList(),
-                            onDestinationSelected: (index) {
-                              appController.toPage(
-                                navigationItems[index].label,
-                              );
-                            },
-                            extended: false,
-                            selectedIndex: currentIndex,
-                            labelType: showLabel
-                                ? NavigationRailLabelType.all
-                                : NavigationRailLabelType.none,
-                          ),
+        SizedBox(
+          width: 88,
+          child: _buildBackground(
+            context: context,
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (system.isMacOS) const SizedBox(height: 22),
+                  const SizedBox(height: 10),
+                  if (!system.isMacOS) ...[
+                    const ClipRect(child: AppIcon()),
+                    const SizedBox(height: 12),
+                  ],
+                  Expanded(
+                    child: ScrollConfiguration(
+                      behavior: HiddenBarScrollBehavior(),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < navigationItems.length; i++)
+                              _buildSidebarNavItem(
+                                context: context,
+                                item: navigationItems[i],
+                                selected: i == currentIndex,
+                                onTap: () => appController.toPage(
+                                  navigationItems[i].label,
+                                ),
+                              ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                IconButton(
-                  onPressed: () {
-                    ref
-                        .read(appSettingProvider.notifier)
-                        .update(
-                          (state) =>
-                              state.copyWith(showLabel: !state.showLabel),
-                        );
-                  },
-                  icon: Icon(
-                    Icons.menu,
-                    color: context.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 12),
+                  _buildSidebarBrand(context),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),

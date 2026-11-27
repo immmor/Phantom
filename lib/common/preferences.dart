@@ -98,15 +98,51 @@ class Preferences {
     await preferences?.setInt('lastLoginTime', time.millisecondsSinceEpoch);
   }
 
+  /// 账号维度的本地 key：同一设备上不同账号各自保留自己的签到/流量数据。
+  Future<String> _accountKey(String key) async {
+    final username = await getUsername();
+    if (username == null || username.isEmpty) return key;
+    return '$key@$username';
+  }
+
+  /// 一次性迁移：旧版本的数据是按设备存的，升级后归到当前账号名下，
+  /// 避免登录看起来像被清零。之后各账号独立保存。
+  Future<void> migrateLegacyAccountCache() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (preferences == null) return;
+    if (preferences.getBool('accountCacheMigrated') == true) return;
+    final username = preferences.getString(_usernameKey);
+    if (username == null || username.isEmpty) return;
+
+    Future<void> migrate(String key) async {
+      final scopedKey = '$key@$username';
+      if (preferences.containsKey(scopedKey)) return;
+      final value = preferences.get(key);
+      if (value is int) {
+        await preferences.setInt(scopedKey, value);
+      } else if (value is double) {
+        await preferences.setDouble(scopedKey, value);
+      }
+    }
+
+    await migrate('lastCheckInDate');
+    await migrate('cachedTotalUpTraffic');
+    await migrate('cachedTotalDownTraffic');
+    await preferences.setBool('accountCacheMigrated', true);
+  }
+
   Future<DateTime?> getLastCheckInDate() async {
     final preferences = await sharedPreferencesCompleter.future;
-    final timestamp = preferences?.getInt('lastCheckInDate');
+    final timestamp = preferences?.getInt(await _accountKey('lastCheckInDate'));
     return timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : null;
   }
 
   Future<void> setLastCheckInDate(DateTime date) async {
     final preferences = await sharedPreferencesCompleter.future;
-    await preferences?.setInt('lastCheckInDate', date.millisecondsSinceEpoch);
+    await preferences?.setInt(
+      await _accountKey('lastCheckInDate'),
+      date.millisecondsSinceEpoch,
+    );
   }
 
   Future<String?> getVToken() async {
@@ -181,6 +217,21 @@ class Preferences {
     }
   }
 
+  /// 每月基础流量配额，单位 MB（后端 monthly_quota）
+  Future<double?> getMonthlyQuota() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getDouble('monthlyQuota');
+  }
+
+  Future<void> setMonthlyQuota(double? quota) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (quota != null) {
+      await preferences?.setDouble('monthlyQuota', quota);
+    } else {
+      await preferences?.remove('monthlyQuota');
+    }
+  }
+
   Future<Map<String, dynamic>?> getPricePlan() async {
     final preferences = await sharedPreferencesCompleter.future;
     final str = preferences?.getString('pricePlan');
@@ -205,29 +256,47 @@ class Preferences {
 
   Future<double?> getCachedTotalUpTraffic() async {
     final preferences = await sharedPreferencesCompleter.future;
-    return preferences?.getDouble('cachedTotalUpTraffic');
+    return preferences?.getDouble(await _accountKey('cachedTotalUpTraffic'));
   }
 
   Future<void> setCachedTotalUpTraffic(double? value) async {
     final preferences = await sharedPreferencesCompleter.future;
+    final key = await _accountKey('cachedTotalUpTraffic');
     if (value != null) {
-      await preferences?.setDouble('cachedTotalUpTraffic', value);
+      await preferences?.setDouble(key, value);
     } else {
-      await preferences?.remove('cachedTotalUpTraffic');
+      await preferences?.remove(key);
     }
   }
 
   Future<double?> getCachedTotalDownTraffic() async {
     final preferences = await sharedPreferencesCompleter.future;
-    return preferences?.getDouble('cachedTotalDownTraffic');
+    return preferences?.getDouble(await _accountKey('cachedTotalDownTraffic'));
   }
 
   Future<void> setCachedTotalDownTraffic(double? value) async {
     final preferences = await sharedPreferencesCompleter.future;
+    final key = await _accountKey('cachedTotalDownTraffic');
     if (value != null) {
-      await preferences?.setDouble('cachedTotalDownTraffic', value);
+      await preferences?.setDouble(key, value);
     } else {
-      await preferences?.remove('cachedTotalDownTraffic');
+      await preferences?.remove(key);
+    }
+  }
+
+  /// 签到奖励流量（字节），按账号保存。
+  Future<double?> getCheckInBonusTraffic() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    return preferences?.getDouble(await _accountKey('checkInBonusTraffic'));
+  }
+
+  Future<void> setCheckInBonusTraffic(double? value) async {
+    final preferences = await sharedPreferencesCompleter.future;
+    final key = await _accountKey('checkInBonusTraffic');
+    if (value != null) {
+      await preferences?.setDouble(key, value);
+    } else {
+      await preferences?.remove(key);
     }
   }
 

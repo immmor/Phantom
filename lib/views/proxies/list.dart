@@ -313,7 +313,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                   behavior: HiddenBarScrollBehavior(),
                   child: ListView.builder(
                     key: proxiesListStoreKey,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
                     controller: _controller,
                     itemExtentBuilder: (index, _) {
                       return itemsOffset[index];
@@ -586,6 +589,9 @@ class _ListHeaderState extends State<ListHeader> {
                   iconSize: 24,
                   style: ButtonStyle(
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: const WidgetStatePropertyAll<OutlinedBorder>(
+                      CircleBorder(),
+                    ),
                   ),
                   onPressed: () {
                     _handleChange(groupName);

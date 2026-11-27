@@ -3529,6 +3529,11 @@ class AppLocalizations {
     );
   }
 
+  /// `Later`
+  String get later {
+    return Intl.message('Later', name: 'later', desc: '', args: []);
+  }
+
   /// `Access Control Settings`
   String get accessControlSettings {
     return Intl.message(

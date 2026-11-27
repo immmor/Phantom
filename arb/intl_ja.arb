@@ -454,6 +454,7 @@
   "minutesAgo": "{count}分前",
   "justNow": "たった今",
   "noLongerRemind": "今後表示しない",
+  "later": "後で",
   "accessControlSettings": "アクセス制御設定",
   "turnOn": "オン",
   "turnOff": "オフ",

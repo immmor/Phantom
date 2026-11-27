@@ -1,15 +1,12 @@
-import 'dart:math';
-
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/glass.dart';
-import 'package:fl_clash/common/shimmer.dart';
 import 'package:fl_clash/common/tap_scale.dart';
 import 'package:fl_clash/widgets/user_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 商城 Tab：会员 / 流量 / 节点 / 充值。
-/// 设计语言沿用 Phantom 青色主题 + 玻璃拟态 + 错落入场，营造高端炫酷质感。
+/// 设计语言与首页统一：瑞士极简排版 + 玻璃拟态 + 低饱和点缀。
 class MallView extends ConsumerStatefulWidget {
   const MallView({super.key});
 
@@ -23,20 +20,14 @@ class _MallViewState extends ConsumerState<MallView>
     vsync: this,
     duration: const Duration(milliseconds: 900),
   )..forward();
-  late final AnimationController _glowController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2200),
-  )..repeat(reverse: true);
 
   MallCategory _category = MallCategory.all;
 
   static const _cyan = Color(0xFF00F7FF);
-  static const _cyanDeep = Color(0xFF00BDE8);
 
   @override
   void dispose() {
     _enterController.dispose();
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -63,31 +54,30 @@ class _MallViewState extends ConsumerState<MallView>
     return Scaffold(
       body: Stack(
         children: [
-          Container(color: context.colorScheme.surface),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0.1, -0.55),
-                  radius: 1.15,
-                  colors: [
-                    accent.withOpacity(isVip ? 0.14 : 0.16),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
+          SwissBackground(
+            accent: accent,
+            alignment: const Alignment(0.1, -0.55),
+            radius: 1.15,
+            glowAlpha: isVip ? 0.14 : 0.16,
           ),
           SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _buildHeader(accent),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                  child: _buildPageHeader(),
+                ),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            _buildHeader(accent),
                       const SizedBox(height: 16),
-                      _buildCategories(),
+                      _buildCategories(accent),
                       const SizedBox(height: 16),
                       _buildFeatured(accent),
                     ]),
@@ -155,17 +145,54 @@ class _MallViewState extends ConsumerState<MallView>
                             }
                             return Padding(
                               padding:
-                                  const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                                  const EdgeInsets.fromLTRB(24, 0, 24, 32),
                               child: Column(children: rows),
                             );
                           },
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// 页面品牌头：与首页一致的瑞士极简排版
+  Widget _buildPageHeader() {
+    final outline = context.colorScheme.outline;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'PHANTOM',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2.6,
+            color: context.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '会员商城',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 2.4,
+            color: context.colorScheme.onSurfaceVariant.opacity60,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          height: 1,
+          color: outline.withValues(alpha: 0.12),
+        ),
+      ],
     );
   }
 
@@ -255,7 +282,8 @@ class _MallViewState extends ConsumerState<MallView>
     );
   }
 
-  Widget _buildCategories() {
+  Widget _buildCategories(Color accent) {
+    final outline = context.colorScheme.outline;
     return _EntranceCard(
       animation: _enterController,
       delay: 0.08,
@@ -273,24 +301,22 @@ class _MallViewState extends ConsumerState<MallView>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: selected
-                        ? LinearGradient(
-                            colors: [_cyan, _cyanDeep],
-                          )
-                        : null,
-                    color: selected ? null : context.colorScheme.surfaceContainer,
+                    color: selected
+                        ? accent.withValues(alpha: 0.14)
+                        : context.colorScheme.surfaceContainer
+                            .withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: selected
-                          ? Colors.transparent
-                          : context.colorScheme.outline.withOpacity(0.25),
+                          ? accent.withValues(alpha: 0.45)
+                          : outline.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Text(
                     c.label,
                     style: TextStyle(
                       color: selected
-                          ? Colors.black87
+                          ? accent
                           : context.colorScheme.onSurfaceVariant,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,
@@ -310,122 +336,91 @@ class _MallViewState extends ConsumerState<MallView>
     return _EntranceCard(
       animation: _enterController,
       delay: 0.16,
-      child: Stack(
-        children: [
-          Container(
-            height: 132,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0E2A33), Color(0xFF10243A)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _cyan.withOpacity(0.25),
-                  blurRadius: 28,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _cyan.withOpacity(0.16),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          '限时特惠',
-                          style: TextStyle(
-                            color: _cyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+      child: GlassSurface(
+        padding: const EdgeInsets.all(22),
+        borderRadius: BorderRadius.circular(24),
+        blur: 20,
+        tint: context.colorScheme.surfaceContainerHigh,
+        tintOpacity: 0.55,
+        borderOpacity: 0.8,
+        boxShadow: const [],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 88),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        '年付 VIP 低至 ¥350',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '高速节点 · 全球畅连 · 专属客服',
+                      child: Text(
+                        '限时特惠',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.65),
+                          color: accent,
                           fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                TapScale(
-                  onTap: () => _onBuy(_allProducts.firstWhere(
-                    (p) => p.category == MallCategory.vip && p.price == 350,
-                  )),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
                     ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [_cyan, _cyanDeep],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Text(
-                      '立即抢购',
+                    const SizedBox(height: 12),
+                    Text(
+                      '年付 VIP 低至 ¥350',
                       style: TextStyle(
-                        color: Colors.black87,
+                        color: context.colorScheme.onSurface,
+                        fontSize: 20,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Shimmer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Colors.white.withOpacity(0.0),
-                          Colors.white.withOpacity(0.10),
-                          Colors.white.withOpacity(0.0),
-                        ],
+                    const SizedBox(height: 4),
+                    Text(
+                      '高速节点 · 全球畅连 · 专属客服',
+                      style: TextStyle(
+                        color: context.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.8),
+                        fontSize: 12,
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              TapScale(
+                onTap: () => _onBuy(_allProducts.firstWhere(
+                  (p) => p.category == MallCategory.vip && p.price == 350,
+                )),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    '立即抢购',
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

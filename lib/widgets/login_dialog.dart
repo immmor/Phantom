@@ -76,6 +76,8 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
         final vToken = userInfo?['v_token'] as String?;
         final vExpireDate = userInfo?['v_expire_date'] as String?;
         final balance = (userInfo?['balance'] as num?)?.toDouble();
+        final monthlyQuota = userInfo?['monthly_quota'] as num?;
+        await applyMonthlyQuota(monthlyQuota);
         await preferences.setLastLoginTime(DateTime.now());
         await preferences.setUsername(username);
         await preferences.setVToken(vToken);
@@ -86,6 +88,11 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
         await preferences.setBalance(balance);
         await preferences.setPricePlan(
           (payload['p'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+        );
+
+        // 切换账号：加载新账号自己的签到状态与已用流量
+        await reloadAccountScopedCache(
+          ProviderScope.containerOf(context, listen: false),
         );
 
         if (mounted) {
@@ -125,10 +132,20 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
 
     if (isVip) {
       // 会员：下载两个节点，激活会员节点
-      await _addProfile(container, 'https://api.immmor.com/vip/clash?v=$vToken', 'VIP 节点', true);
+      await _addProfile(
+        container,
+        'https://api.immmor.com/vip/clash?v=${Uri.encodeComponent(vToken ?? '')}',
+        'VIP 节点',
+        true,
+      );
     } else {
       // 非会员：只下载免费节点并激活
-      await _addProfile(container, 'https://api.immmor.com/free/clash?username=$username', '免费节点', true);
+      await _addProfile(
+        container,
+        'https://api.immmor.com/free/clash?username=${Uri.encodeComponent(username ?? '')}',
+        '免费节点',
+        true,
+      );
     }
   }
 
@@ -147,25 +164,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
   }
 
   Future<void> _addProfile(ProviderContainer container, String url, String label, bool autoSelect) async {
-    try {
-      var profile = Profile.normal(
-        label: label,
-        url: url,
-      );
-
-      // 下载订阅内容
-      profile = await profile.update();
-
-      // 保存到数据库
-      container.read(profilesProvider.notifier).put(profile);
-
-      // 如果是免费节点且需要自动选择，则设置为当前使用的配置
-      if (autoSelect) {
-        container.read(currentProfileIdProvider.notifier).value = profile.id;
-      }
-    } catch (e) {
-      debugPrint('添加订阅失败：$e');
-    }
+    await addProfileDirect(container, url, label, autoSelect: autoSelect);
   }
 
   void _error(String msg) {
