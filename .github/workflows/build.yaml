@@ -36,6 +36,16 @@ jobs:
             arch: arm64
 
     steps:
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/powershell
+          docker image prune --all --force || true
+          df -h
+
       - name: Setup rust
         if: startsWith(matrix.os, 'windows-11-arm')
         run: |
