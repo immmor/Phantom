@@ -425,11 +425,24 @@ class BuildCommand extends Command {
     required String env,
   }) async {
     await Build.getDistributor();
+    final distributorScript = join(
+      current,
+      'plugins',
+      'flutter_distributor',
+      'packages',
+      'flutter_distributor',
+      'bin',
+      'main.dart',
+    );
     await Build.exec(
       name: name,
-      Build.getExecutable(
-        'dart pub global run flutter_distributor:flutter_distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose,dart-define-from-file=env.json$args',
-      ),
+      [
+        'dart',
+        distributorScript,
+        ...Build.getExecutable(
+          'package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose,dart-define-from-file=env.json$args',
+        ),
+      ],
     );
   }
 
