@@ -155,7 +155,28 @@ jobs:
           Invoke-WebRequest -Uri $vcUrl -OutFile "$env:TEMP\vc_redist.exe"
           Write-Host "Extracting DLLs..."
           & "$env:TEMP\vc_redist.exe" /layout "$env:TEMP\vc_layout" /q
-          Copy-Item "$env:TEMP\vc_layout\$vcArch\*.dll" $destDir\ -Force
+          Write-Host "Layout contents:"
+          Get-ChildItem -Recurse "$env:TEMP\vc_layout" | ForEach-Object { Write-Host "  $($_.FullName)" }
+          # Try multiple possible paths for the DLLs
+          $dllPaths = @(
+            "$env:TEMP\vc_layout\$vcArch\Microsoft.VC143.CRT\*.dll",
+            "$env:TEMP\vc_layout\$vcArch\*.dll",
+            "$env:TEMP\vc_layout\$vcArch\Release\*.dll",
+            "$env:TEMP\vc_layout\*.dll"
+          )
+          $copied = $false
+          foreach ($path in $dllPaths) {
+            if (Test-Path $path) {
+              Copy-Item $path $destDir\ -Force
+              $copied = $true
+              Write-Host "Copied from $path"
+              break
+            }
+          }
+          if (-not $copied) {
+            Write-Error "Could not find VC++ DLLs in any expected path"
+            exit 1
+          }
           Get-ChildItem $destDir | ForEach-Object { Write-Host "  $($_.Name)" }
 
       - name: Setup
