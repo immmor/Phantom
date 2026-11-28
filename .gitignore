@@ -68,6 +68,3 @@ devtools_options.yaml
 # FVM Version Cache
 .fvm/
 .fvmrc
-
-# CI-generated VC++ Runtime DLLs
-/windows/VC_RUNTIME/

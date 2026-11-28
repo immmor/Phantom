@@ -32,9 +32,6 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
-# Static link MSVC runtime to avoid MSVCP140.dll dependency on clean machines
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
@@ -121,15 +118,3 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
-
-# VC++ Runtime DLLs (App-local deployment)
-# Downloaded by CI workflow. See .github/workflows/build.yaml.
-set(VC_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/VC_RUNTIME")
-if(EXISTS "${VC_RUNTIME_DIR}/msvcp140.dll")
-  install(FILES
-    "${VC_RUNTIME_DIR}/msvcp140.dll"
-    "${VC_RUNTIME_DIR}/vcruntime140.dll"
-    "${VC_RUNTIME_DIR}/vcruntime140_1.dll"
-    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    COMPONENT Runtime)
-endif()
