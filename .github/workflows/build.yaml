@@ -143,6 +143,21 @@ jobs:
           flutter --version
           flutter pub get
 
+      - name: Download VC++ Runtime DLLs
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $vcArch = if ("${{ matrix.arch }}" -eq "arm64") { "arm64" } else { "x64" }
+          $vcUrl = "https://aka.ms/vs/17/release/vc_redist.$vcArch.exe"
+          $destDir = "windows/VC_RUNTIME"
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          Write-Host "Downloading vc_redist.$vcArch.exe from $vcUrl"
+          Invoke-WebRequest -Uri $vcUrl -OutFile "$env:TEMP\vc_redist.exe"
+          Write-Host "Extracting DLLs..."
+          & "$env:TEMP\vc_redist.exe" /layout "$env:TEMP\vc_layout" /q
+          Copy-Item "$env:TEMP\vc_layout\$vcArch\*.dll" $destDir\ -Force
+          Get-ChildItem $destDir | ForEach-Object { Write-Host "  $($_.Name)" }
+
       - name: Setup
         shell: bash
         run: |

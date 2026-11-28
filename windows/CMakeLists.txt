@@ -121,3 +121,15 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# VC++ Runtime DLLs (App-local deployment)
+# Downloaded by CI workflow. See .github/workflows/build.yaml.
+set(VC_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/VC_RUNTIME")
+if(EXISTS "${VC_RUNTIME_DIR}/msvcp140.dll")
+  install(FILES
+    "${VC_RUNTIME_DIR}/msvcp140.dll"
+    "${VC_RUNTIME_DIR}/vcruntime140.dll"
+    "${VC_RUNTIME_DIR}/vcruntime140_1.dll"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
